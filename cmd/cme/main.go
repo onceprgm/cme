@@ -3,17 +3,19 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/onceprgm/cme/internal/download"
 	"github.com/onceprgm/cme/internal/manifest"
+	"github.com/onceprgm/cme/internal/store"
 )
 
 const usage = `cme - minimal Minecraft launcher for Linux
 
 Usage:
   cme version list [--release|--snapshot|--old-beta|--old-alpha]
+  cme install <version>
   cme help
-
-More commands (install, launch, profile) are on the way.
 `
 
 func main() {
@@ -32,6 +34,8 @@ func run(args []string) error {
 	switch args[0] {
 	case "version":
 		return cmdVersion(args[1:])
+	case "install":
+		return cmdInstall(args[1:])
 	case "help", "--help", "-h":
 		fmt.Print(usage)
 		return nil
@@ -75,5 +79,47 @@ func cmdVersion(args []string) error {
 		fmt.Printf("%s %-26s %-10s %s\n",
 			marker, v.ID, v.Type, v.ReleaseTime.Format("2006-01-02"))
 	}
+	return nil
+}
+
+func cmdInstall(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: cme install <version>")
+	}
+	id := args[0]
+
+	m, err := manifest.Fetch()
+	if err != nil {
+		return err
+	}
+
+	v := m.Find(id)
+	if v == nil {
+		return fmt.Errorf("version %q not found, try: cme version list", id)
+	}
+
+	fmt.Fprintf(os.Stderr, "resolving %s...\n", id)
+	meta, raw, err := manifest.FetchVersionMeta(v)
+	if err != nil {
+		return err
+	}
+
+	dir := store.VersionDir(id)
+	if err := store.Ensure(dir); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, id+".json"), raw, 0o644); err != nil {
+		return err
+	}
+
+	jar := filepath.Join(dir, id+".jar")
+	fmt.Fprintf(os.Stderr, "downloading client.jar (%.1f MB)...\n",
+		float64(meta.Downloads.Client.Size)/1024/1024)
+	if err := download.File(meta.Downloads.Client.URL, jar, meta.Downloads.Client.SHA1); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(os.Stderr, "installed %s (java %d required)\n", id, meta.JavaVersion.MajorVersion)
+	// TODO: libraries, asset index, natives
 	return nil
 }

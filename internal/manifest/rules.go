@@ -1,6 +1,10 @@
 package manifest
 
-import "runtime"
+import (
+	"regexp"
+	"runtime"
+	"syscall"
+)
 
 type Rule struct {
 	Action string `json:"action"`
@@ -13,9 +17,10 @@ type Rule struct {
 }
 
 type RuleContext struct {
-	OSName   string
-	Arch     string
-	Features map[string]bool
+	OSName    string
+	Arch      string
+	OSVersion string
+	Features  map[string]bool
 }
 
 func CurrentContext() RuleContext {
@@ -26,7 +31,22 @@ func CurrentContext() RuleContext {
 	case "386":
 		arch = "x86"
 	}
-	return RuleContext{OSName: "linux", Arch: arch}
+	return RuleContext{OSName: "linux", Arch: arch, OSVersion: kernelVersion()}
+}
+
+func kernelVersion() string {
+	var u syscall.Utsname
+	if err := syscall.Uname(&u); err != nil {
+		return ""
+	}
+	buf := make([]byte, 0, len(u.Release))
+	for _, c := range u.Release {
+		if c == 0 {
+			break
+		}
+		buf = append(buf, byte(c))
+	}
+	return string(buf)
 }
 
 func Allowed(rules []Rule, ctx RuleContext) bool {
@@ -50,6 +70,15 @@ func (r Rule) matches(ctx RuleContext) bool {
 		}
 		if r.OS.Arch != "" && r.OS.Arch != ctx.Arch {
 			return false
+		}
+		if r.OS.Version != "" {
+			if ctx.OSVersion == "" {
+				return false
+			}
+			ok, err := regexp.MatchString(r.OS.Version, ctx.OSVersion)
+			if err != nil || !ok {
+				return false
+			}
 		}
 	}
 	for name, want := range r.Features {

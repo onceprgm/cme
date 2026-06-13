@@ -86,7 +86,49 @@ func Install(v *manifest.Version, progress func(stage string, done, total int)) 
 		}
 	}
 
+	if err := installAssets(meta, progress); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func installAssets(meta *manifest.VersionMeta, progress func(stage string, done, total int)) error {
+	if meta.AssetIndex.URL == "" {
+		return nil
+	}
+
+	idx, raw, err := manifest.FetchAssetIndex(meta.AssetIndex.URL, meta.AssetIndex.SHA1)
+	if err != nil {
+		return err
+	}
+
+	indexesDir := filepath.Join(store.AssetsDir(), "indexes")
+	if err := store.Ensure(indexesDir); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(indexesDir, meta.AssetIndex.ID+".json"), raw, 0o644); err != nil {
+		return err
+	}
+
+	objectsDir := filepath.Join(store.AssetsDir(), "objects")
+	seen := map[string]bool{}
+	var tasks []download.Task
+	for _, o := range idx.Objects {
+		if seen[o.Hash] {
+			continue
+		}
+		seen[o.Hash] = true
+		tasks = append(tasks, download.Task{
+			URL:  o.URL(),
+			Dest: filepath.Join(objectsDir, filepath.FromSlash(o.Path())),
+			SHA1: o.Hash,
+		})
+	}
+
+	return download.All(tasks, workers, func(done, total int) {
+		progress("assets", done, total)
+	})
 }
 
 func extract(jarPath, destDir string, exclude []string) error {

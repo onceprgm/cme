@@ -56,7 +56,7 @@ func File(url, dest, wantSHA1 string) error {
 			return err
 		}
 		if attempt < maxRetries {
-			time.Sleep(time.Duration(attempt) * 500 * time.Millisecond)
+			time.Sleep(time.Duration(1<<(attempt-1)) * time.Second)
 		}
 	}
 	return fmt.Errorf("download %s: gave up after %d attempts: %w", url, maxRetries, err)

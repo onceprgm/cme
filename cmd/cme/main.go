@@ -97,7 +97,7 @@ func cmdInstall(args []string) error {
 	}
 
 	lastStage := ""
-	err = installer.Install(v, func(stage string, done, total int) {
+	meta, err := installer.Install(v, func(stage string, done, total int) {
 		if stage != lastStage {
 			if lastStage != "" {
 				fmt.Fprintln(os.Stderr)
@@ -113,6 +113,6 @@ func cmdInstall(args []string) error {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "installed %s\n", id)
+	fmt.Fprintf(os.Stderr, "installed %s (java %d required)\n", id, meta.JavaVersion.MajorVersion)
 	return nil
 }

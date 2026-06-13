@@ -13,26 +13,29 @@ import (
 	"github.com/onceprgm/cme/internal/store"
 )
 
-const workers = 8
+type nativeLib struct {
+	lib  manifest.Library
+	file manifest.LibFile
+}
 
-func Install(v *manifest.Version, progress func(stage string, done, total int)) error {
+func Install(v *manifest.Version, progress func(stage string, done, total int)) (*manifest.VersionMeta, error) {
 	meta, raw, err := manifest.FetchVersionMeta(v)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	dir := store.VersionDir(meta.ID)
 	if err := store.Ensure(dir); err != nil {
-		return err
+		return nil, err
 	}
 	if err := os.WriteFile(filepath.Join(dir, meta.ID+".json"), raw, 0o644); err != nil {
-		return err
+		return nil, err
 	}
 
 	progress("client", 0, 1)
 	jar := filepath.Join(dir, meta.ID+".jar")
 	if err := download.File(meta.Downloads.Client.URL, jar, meta.Downloads.Client.SHA1); err != nil {
-		return err
+		return nil, err
 	}
 	progress("client", 1, 1)
 
@@ -40,7 +43,7 @@ func Install(v *manifest.Version, progress func(stage string, done, total int)) 
 	libs := meta.ResolvedLibraries(ctx)
 
 	var tasks []download.Task
-	var natives []manifest.Library
+	var natives []nativeLib
 	seen := map[string]bool{}
 
 	add := func(f manifest.LibFile) {
@@ -61,36 +64,35 @@ func Install(v *manifest.Version, progress func(stage string, done, total int)) 
 		}
 		if f, ok := l.NativeClassifier(ctx); ok {
 			add(f)
-			natives = append(natives, l)
+			natives = append(natives, nativeLib{lib: l, file: f})
 		}
 	}
 
-	if err := download.All(tasks, workers, func(done, total int) {
+	if err := download.All(tasks, download.DefaultWorkers(), func(done, total int) {
 		progress("libraries", done, total)
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(natives) > 0 {
 		nativesDir := filepath.Join(dir, "natives")
 		if err := store.Ensure(nativesDir); err != nil {
-			return err
+			return nil, err
 		}
-		for i, l := range natives {
-			f, _ := l.NativeClassifier(ctx)
-			src := filepath.Join(store.LibrariesDir(), filepath.FromSlash(f.Path))
-			if err := extract(src, nativesDir, l.ExcludePatterns()); err != nil {
-				return fmt.Errorf("extract natives from %s: %w", l.Name, err)
+		for i, n := range natives {
+			src := filepath.Join(store.LibrariesDir(), filepath.FromSlash(n.file.Path))
+			if err := extract(src, nativesDir, n.lib.ExcludePatterns()); err != nil {
+				return nil, fmt.Errorf("extract natives from %s: %w", n.lib.Name, err)
 			}
 			progress("natives", i+1, len(natives))
 		}
 	}
 
 	if err := installAssets(meta, progress); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return meta, nil
 }
 
 func installAssets(meta *manifest.VersionMeta, progress func(stage string, done, total int)) error {
@@ -126,7 +128,7 @@ func installAssets(meta *manifest.VersionMeta, progress func(stage string, done,
 		})
 	}
 
-	return download.All(tasks, workers, func(done, total int) {
+	return download.All(tasks, download.DefaultWorkers(), func(done, total int) {
 		progress("assets", done, total)
 	})
 }
@@ -163,7 +165,8 @@ func writeZipFile(f *zip.File, dest string) error {
 	}
 	defer rc.Close()
 
-	out, err := os.Create(dest)
+	part := dest + ".part"
+	out, err := os.Create(part)
 	if err != nil {
 		return err
 	}
@@ -172,5 +175,9 @@ func writeZipFile(f *zip.File, dest string) error {
 	if cerr := out.Close(); err == nil {
 		err = cerr
 	}
-	return err
+	if err != nil {
+		os.Remove(part)
+		return err
+	}
+	return os.Rename(part, dest)
 }

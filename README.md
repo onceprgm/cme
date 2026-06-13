@@ -24,7 +24,7 @@ cme version list --snapshot
 cme version list --old-beta
 cme version list --old-alpha
  
-# install a version (downloads client JAR with SHA-1 verification)
+# install a version (client JAR + libraries + natives, SHA-1 verified)
 cme install 1.21.4
 cme install 26.1.2
 ```
@@ -50,7 +50,8 @@ cme install 26.1.2
 - [x] fetch and parse version manifest
 - [x] filter versions by type
 - [x] install vanilla version (client JAR + version JSON, SHA-1 verified)
-- [ ] download libraries and asset index
+- [x] download libraries and extract natives (parallel, platform-filtered)
+- [ ] download asset index and objects
 - [ ] launch installed version
 
 ## Stack

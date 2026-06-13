@@ -23,6 +23,7 @@ type VersionMeta struct {
 	Downloads struct {
 		Client Artifact `json:"client"`
 	} `json:"downloads"`
+	Libraries []Library `json:"libraries"`
 }
 
 type Artifact struct {
@@ -59,4 +60,14 @@ func FetchVersionMeta(v *Version) (*VersionMeta, []byte, error) {
 		return nil, nil, fmt.Errorf("parse version json: %w", err)
 	}
 	return &meta, raw, nil
+}
+
+func (m *VersionMeta) ResolvedLibraries(ctx RuleContext) []Library {
+	out := make([]Library, 0, len(m.Libraries))
+	for _, l := range m.Libraries {
+		if Allowed(l.Rules, ctx) {
+			out = append(out, l)
+		}
+	}
+	return out
 }

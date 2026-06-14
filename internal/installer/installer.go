@@ -116,7 +116,10 @@ func installAssets(meta *manifest.VersionMeta, progress func(stage string, done,
 	objectsDir := filepath.Join(store.AssetsDir(), "objects")
 	seen := map[string]bool{}
 	var tasks []download.Task
-	for _, o := range idx.Objects {
+	for name, o := range idx.Objects {
+		if len(o.Hash) < 2 {
+			return fmt.Errorf("asset %q has malformed hash %q", name, o.Hash)
+		}
 		if seen[o.Hash] {
 			continue
 		}

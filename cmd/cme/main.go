@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/onceprgm/cme/internal/account"
 	"github.com/onceprgm/cme/internal/installer"
@@ -144,6 +145,9 @@ func cmdLaunch(args []string) error {
 				return fmt.Errorf("--ram needs a value")
 			}
 			ram = rest[i+1]
+			if n, err := strconv.Atoi(ram); err != nil || n <= 0 {
+				return fmt.Errorf("--ram must be a positive integer (GB), got %q", ram)
+			}
 			i++
 		default:
 			return fmt.Errorf("unknown flag %q", rest[i])

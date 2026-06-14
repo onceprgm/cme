@@ -12,6 +12,7 @@ import (
 
 type VersionMeta struct {
 	ID          string `json:"id"`
+	Type        string `json:"type"`
 	MainClass   string `json:"mainClass"`
 	JavaVersion struct {
 		MajorVersion int `json:"majorVersion"`

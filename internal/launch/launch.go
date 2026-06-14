@@ -64,7 +64,7 @@ func Launch(opts Options) error {
 		"auth_access_token": opts.Account.AccessToken,
 		"user_type":         opts.Account.UserType,
 		"version_name":      opts.VersionID,
-		"version_type":      "release",
+		"version_type":      versionType(meta.Type),
 		"game_directory":    gameDir,
 		"assets_root":       store.AssetsDir(),
 		"assets_index_name": meta.AssetIndex.ID,
@@ -104,4 +104,11 @@ func Launch(opts Options) error {
 		return fmt.Errorf("minecraft exited: %w", err)
 	}
 	return nil
+}
+
+func versionType(t string) string {
+	if t == "" {
+		return "release"
+	}
+	return t
 }

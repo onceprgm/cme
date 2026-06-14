@@ -23,11 +23,59 @@ Usage:
   cme help
 `
 
+const versionUsage = `cme version list - list available Minecraft versions
+
+Usage:
+  cme version list [filter]
+
+Filters:
+  --release      stable releases only
+  --snapshot     development snapshots only
+  --old-beta     old beta versions (2010-2011)
+  --old-alpha    old alpha versions (2010)
+
+With no filter, every version is listed. A * marks the latest release/snapshot.
+`
+
+const installUsage = `cme install - download a Minecraft version
+
+Usage:
+  cme install <version>
+
+Downloads the client JAR, libraries, native libraries and assets for the given
+version, all verified by SHA-1. Already-present files are skipped. Example:
+
+  cme install 1.20.1
+`
+
+const launchUsage = `cme launch - run an installed version in offline mode
+
+Usage:
+  cme launch <version> --username <name> [--ram <GB>]
+
+Flags:
+  --username <name>   player name (required; offline mode)
+  --ram <GB>          memory in gigabytes, sets -Xmx and -Xms (optional)
+
+The version must be installed first with 'cme install'. Example:
+
+  cme launch 1.20.1 --username Steve --ram 4
+`
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "cme:", err)
 		os.Exit(1)
 	}
+}
+
+func wantsHelp(args []string) bool {
+	for _, a := range args {
+		if a == "--help" || a == "-h" {
+			return true
+		}
+	}
+	return false
 }
 
 func run(args []string) error {
@@ -53,6 +101,11 @@ func run(args []string) error {
 }
 
 func cmdVersion(args []string) error {
+	if len(args) == 0 || wantsHelp(args) {
+		fmt.Print(versionUsage)
+		return nil
+	}
+
 	if len(args) == 0 || args[0] != "list" {
 		return fmt.Errorf("usage: cme version list [--release|--snapshot|--old-beta|--old-alpha]")
 	}
@@ -95,6 +148,11 @@ func cmdVersion(args []string) error {
 }
 
 func cmdInstall(args []string) error {
+	if wantsHelp(args) {
+		fmt.Print(installUsage)
+		return nil
+	}
+
 	if len(args) != 1 {
 		return fmt.Errorf("usage: cme install <version>")
 	}
@@ -126,6 +184,11 @@ func cmdInstall(args []string) error {
 }
 
 func cmdLaunch(args []string) error {
+	if wantsHelp(args) {
+		fmt.Print(launchUsage)
+		return nil
+	}
+
 	if len(args) < 1 {
 		return fmt.Errorf("usage: cme launch <version> --username <name> [--ram <GB>]")
 	}

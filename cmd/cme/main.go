@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"text/tabwriter"
 
 	"github.com/onceprgm/cme/internal/account"
 	"github.com/onceprgm/cme/internal/installer"
 	"github.com/onceprgm/cme/internal/launch"
 	"github.com/onceprgm/cme/internal/manifest"
+	"github.com/onceprgm/cme/internal/preflight"
+	"github.com/onceprgm/cme/internal/ui"
 )
 
 const usage = `cme - minimal Minecraft launcher for Linux
@@ -70,20 +73,25 @@ func cmdVersion(args []string) error {
 		}
 	}
 
+	if err := preflight.RequireOnline(); err != nil {
+		return err
+	}
+
 	m, err := manifest.Fetch()
 	if err != nil {
 		return err
 	}
 
+	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 	for _, v := range m.Filter(filter) {
 		marker := " "
 		if v.ID == m.Latest.Release || v.ID == m.Latest.Snapshot {
 			marker = "*"
 		}
-		fmt.Printf("%s %-26s %-10s %s\n",
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 			marker, v.ID, v.Type, v.ReleaseTime.Format("2006-01-02"))
 	}
-	return nil
+	return tw.Flush()
 }
 
 func cmdInstall(args []string) error {
@@ -91,6 +99,10 @@ func cmdInstall(args []string) error {
 		return fmt.Errorf("usage: cme install <version>")
 	}
 	id := args[0]
+
+	if err := preflight.RequireOnline(); err != nil {
+		return err
+	}
 
 	m, err := manifest.Fetch()
 	if err != nil {
@@ -102,24 +114,14 @@ func cmdInstall(args []string) error {
 		return fmt.Errorf("version %q not found, try: cme version list", id)
 	}
 
-	lastStage := ""
+	ui.Info("installing %s", id)
 	meta, err := installer.Install(v, func(stage string, done, total int) {
-		if stage != lastStage {
-			if lastStage != "" {
-				fmt.Fprintln(os.Stderr)
-			}
-			lastStage = stage
-		}
-		fmt.Fprintf(os.Stderr, "\r%-10s %d/%d", stage, done, total)
+		ui.Progress(stage, done, total)
 	})
-	if lastStage != "" {
-		fmt.Fprintln(os.Stderr)
-	}
 	if err != nil {
 		return err
 	}
-
-	fmt.Fprintf(os.Stderr, "installed %s (java %d required)\n", id, meta.JavaVersion.MajorVersion)
+	ui.Success("installed %s (requires java %d)", id, meta.JavaVersion.MajorVersion)
 	return nil
 }
 

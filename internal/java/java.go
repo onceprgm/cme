@@ -40,7 +40,7 @@ func Resolve(wantMajor int, override string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("no java %d+ found; install one or run: cme java install (not working) %d", wantMajor, wantMajor)
+	return "", fmt.Errorf("no java %d+ found in PATH or /usr/lib/jvm; install it via your package manager (auto-install coming soon)", wantMajor)
 }
 
 func satisfies(have, want int) bool {

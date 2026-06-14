@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/onceprgm/cme/internal/account"
 	"github.com/onceprgm/cme/internal/installer"
+	"github.com/onceprgm/cme/internal/launch"
 	"github.com/onceprgm/cme/internal/manifest"
 )
 
@@ -13,6 +15,7 @@ const usage = `cme - minimal Minecraft launcher for Linux
 Usage:
   cme version list [--release|--snapshot|--old-beta|--old-alpha]
   cme install <version>
+  cme launch <version> --username <name> [--ram <GB>]
   cme help
 `
 
@@ -34,6 +37,8 @@ func run(args []string) error {
 		return cmdVersion(args[1:])
 	case "install":
 		return cmdInstall(args[1:])
+	case "launch":
+		return cmdLaunch(args[1:])
 	case "help", "--help", "-h":
 		fmt.Print(usage)
 		return nil
@@ -115,4 +120,48 @@ func cmdInstall(args []string) error {
 
 	fmt.Fprintf(os.Stderr, "installed %s (java %d required)\n", id, meta.JavaVersion.MajorVersion)
 	return nil
+}
+
+func cmdLaunch(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: cme launch <version> --username <name> [--ram <GB>]")
+	}
+	id := args[0]
+	username := ""
+	ram := ""
+
+	rest := args[1:]
+	for i := 0; i < len(rest); i++ {
+		switch rest[i] {
+		case "--username":
+			if i+1 >= len(rest) {
+				return fmt.Errorf("--username needs a value")
+			}
+			username = rest[i+1]
+			i++
+		case "--ram":
+			if i+1 >= len(rest) {
+				return fmt.Errorf("--ram needs a value")
+			}
+			ram = rest[i+1]
+			i++
+		default:
+			return fmt.Errorf("unknown flag %q", rest[i])
+		}
+	}
+
+	if username == "" {
+		return fmt.Errorf("--username is required (offline mode)")
+	}
+
+	var jvmArgs []string
+	if ram != "" {
+		jvmArgs = append(jvmArgs, "-Xmx"+ram+"G", "-Xms"+ram+"G")
+	}
+
+	return launch.Launch(launch.Options{
+		VersionID: id,
+		Account:   account.Offline(username),
+		JVMArgs:   jvmArgs,
+	})
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 )
 
 type VersionMeta struct {
@@ -23,7 +24,9 @@ type VersionMeta struct {
 	Downloads struct {
 		Client Artifact `json:"client"`
 	} `json:"downloads"`
-	Libraries []Library `json:"libraries"`
+	Libraries          []Library  `json:"libraries"`
+	Arguments          *Arguments `json:"arguments"`
+	MinecraftArguments string     `json:"minecraftArguments"`
 }
 
 type Artifact struct {
@@ -70,4 +73,16 @@ func (m *VersionMeta) ResolvedLibraries(ctx RuleContext) []Library {
 		}
 	}
 	return out
+}
+
+func LoadVersionMeta(path string) (*VersionMeta, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var meta VersionMeta
+	if err := json.Unmarshal(raw, &meta); err != nil {
+		return nil, fmt.Errorf("parse version json: %w", err)
+	}
+	return &meta, nil
 }

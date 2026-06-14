@@ -42,3 +42,20 @@ func (l *Library) ExcludePatterns() []string {
 	}
 	return l.Extract.Exclude
 }
+
+func (m *VersionMeta) ClasspathPaths(ctx RuleContext) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, l := range m.ResolvedLibraries(ctx) {
+		if l.Downloads.Artifact == nil || l.Downloads.Artifact.Path == "" {
+			continue
+		}
+		p := l.Downloads.Artifact.Path
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	return out
+}

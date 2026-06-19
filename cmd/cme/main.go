@@ -56,6 +56,7 @@ Usage:
 Flags:
   --username <name>   player name (required; offline mode)
   --ram <GB>          memory in gigabytes, sets -Xmx and -Xms (optional)
+  --jvm-arg <arg>     extra JVM argument, repeatable (advanced)
 
 The version must be installed first with 'cme install'. Example:
 
@@ -106,7 +107,7 @@ func cmdVersion(args []string) error {
 		return nil
 	}
 
-	if len(args) == 0 || args[0] != "list" {
+	if args[0] != "list" {
 		return fmt.Errorf("usage: cme version list [--release|--snapshot|--old-beta|--old-alpha]")
 	}
 
@@ -190,11 +191,12 @@ func cmdLaunch(args []string) error {
 	}
 
 	if len(args) < 1 {
-		return fmt.Errorf("usage: cme launch <version> --username <name> [--ram <GB>]")
+		return fmt.Errorf("usage: cme launch <version> --username <name> [--ram <GB>] [--jvm-arg <arg>]")
 	}
 	id := args[0]
 	username := ""
 	ram := ""
+	var extraJVM []string
 
 	rest := args[1:]
 	for i := 0; i < len(rest); i++ {
@@ -214,6 +216,12 @@ func cmdLaunch(args []string) error {
 				return fmt.Errorf("--ram must be a positive integer (GB), got %q", ram)
 			}
 			i++
+		case "--jvm-arg":
+			if i+1 >= len(rest) {
+				return fmt.Errorf("--jvm-arg needs a value")
+			}
+			extraJVM = append(extraJVM, rest[i+1])
+			i++
 		default:
 			return fmt.Errorf("unknown flag %q", rest[i])
 		}
@@ -226,7 +234,10 @@ func cmdLaunch(args []string) error {
 	var jvmArgs []string
 	if ram != "" {
 		jvmArgs = append(jvmArgs, "-Xmx"+ram+"G", "-Xms"+ram+"G")
+	} else {
+		ui.Warn("no --ram set; using JVM defaults, which may be too low for modern versions")
 	}
+	jvmArgs = append(jvmArgs, extraJVM...)
 
 	return launch.Launch(launch.Options{
 		VersionID: id,

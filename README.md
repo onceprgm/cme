@@ -70,9 +70,8 @@ sessions and matches what a server computes for the same name.
 
 | Versions        | Status                                           |
 |-----------------|--------------------------------------------------|
-| 1.9 and newer   | Fully supported                                  |
-| 1.7.3 – 1.8.x   | Launches, but sound and languages may be missing¹   |
-| Older than 1.7.3| Not yet supported¹                               |
+| 1.7.3 and newer   | Fully supported                                  |
+| 1.6.x and older   | Launches, but sound and languages may be missing¹   |
 
 ¹ These use the legacy asset layout, which isn't implemented yet (planned).
 

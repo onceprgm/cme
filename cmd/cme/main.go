@@ -7,6 +7,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/onceprgm/cme/internal/account"
+	"github.com/onceprgm/cme/internal/clog"
 	"github.com/onceprgm/cme/internal/installer"
 	"github.com/onceprgm/cme/internal/launch"
 	"github.com/onceprgm/cme/internal/manifest"
@@ -21,6 +22,11 @@ Usage:
   cme install <version>
   cme launch <version> --username <name> [--ram <GB>]
   cme help
+
+Global flags:
+  -v, --debug    mirror the detailed launcher log to stderr
+
+The full launcher log is always written to $XDG_STATE_HOME/cme/cme.log.
 `
 
 const versionUsage = `cme version list - list available Minecraft versions
@@ -64,10 +70,39 @@ The version must be installed first with 'cme install'. Example:
 `
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	os.Exit(mainCode())
+}
+
+func mainCode() int {
+	verbose, args := splitVerbose(os.Args[1:])
+
+	closeLog, err := clog.Setup(verbose)
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "cme:", err)
-		os.Exit(1)
+		return 1
 	}
+	defer closeLog()
+
+	if err := run(args); err != nil {
+		clog.Error("command failed", "err", err.Error())
+		fmt.Fprintln(os.Stderr, "cme:", err)
+		return 1
+	}
+	return 0
+}
+
+func splitVerbose(args []string) (bool, []string) {
+	verbose := os.Getenv("CME_DEBUG") != ""
+	rest := make([]string, 0, len(args))
+	for _, a := range args {
+		switch a {
+		case "-v", "--verbose", "--debug":
+			verbose = true
+		default:
+			rest = append(rest, a)
+		}
+	}
+	return verbose, rest
 }
 
 func wantsHelp(args []string) bool {

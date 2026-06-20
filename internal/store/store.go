@@ -30,6 +30,10 @@ func CacheDir() string {
 	return xdg("XDG_CACHE_HOME", ".cache")
 }
 
+func StateDir() string {
+	return xdg("XDG_STATE_HOME", filepath.Join(".local", "state"))
+}
+
 func VersionsDir() string {
 	return filepath.Join(DataDir(), "versions")
 }

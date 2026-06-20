@@ -2,8 +2,11 @@ package ui
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
+
+	"github.com/onceprgm/cme/internal/clog"
 )
 
 var colorEnabled = detectColor()
@@ -50,14 +53,17 @@ func Bold(s string) string   { return paint(bold, s) }
 
 func Success(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, paint(green, "✓")+" "+format+"\n", a...)
+	clog.Mirror(slog.LevelInfo, fmt.Sprintf(format, a...))
 }
 
 func Info(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, paint(dim, "→")+" "+format+"\n", a...)
+	clog.Mirror(slog.LevelInfo, fmt.Sprintf(format, a...))
 }
 
 func Warn(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, paint(yellow, "!")+" "+format+"\n", a...)
+	clog.Mirror(slog.LevelWarn, fmt.Sprintf(format, a...))
 }
 
 const barWidth = 24
@@ -65,6 +71,9 @@ const barWidth = 24
 func Progress(label string, done, total int) {
 	if total <= 0 {
 		return
+	}
+	if done == total {
+		clog.Mirror(slog.LevelInfo, fmt.Sprintf("%s %d/%d", label, done, total))
 	}
 	if !colorEnabled {
 		if done == total {

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/onceprgm/cme/internal/clog"
 	"github.com/onceprgm/cme/internal/store"
 )
 
@@ -24,6 +25,7 @@ func Resolve(wantMajor int, override string) (string, error) {
 
 	managed := filepath.Join(store.JavaDir(), strconv.Itoa(wantMajor), "bin", "java")
 	if major, ok := probe(managed); ok && satisfies(major, wantMajor) {
+		clog.Info("java resolved", "path", managed, "major", major, "source", "managed")
 		return managed, nil
 	}
 
@@ -35,7 +37,10 @@ func Resolve(wantMajor int, override string) (string, error) {
 	candidates = append(candidates, matches...)
 
 	for _, c := range candidates {
-		if major, ok := probe(c); ok && satisfies(major, wantMajor) {
+		major, ok := probe(c)
+		clog.Debug("java candidate", "path", c, "major", major, "usable", ok && satisfies(major, wantMajor))
+		if ok && satisfies(major, wantMajor) {
+			clog.Info("java resolved", "path", c, "major", major, "source", "system")
 			return c, nil
 		}
 	}

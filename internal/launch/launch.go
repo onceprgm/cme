@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/onceprgm/cme/internal/account"
+	"github.com/onceprgm/cme/internal/clog"
 	"github.com/onceprgm/cme/internal/java"
 	"github.com/onceprgm/cme/internal/manifest"
 	"github.com/onceprgm/cme/internal/store"
@@ -34,10 +35,17 @@ func Launch(opts Options) error {
 		return fmt.Errorf("load version %s: %w (is it installed?)", opts.VersionID, err)
 	}
 
+	clog.Info("launch", "version", opts.VersionID, "user", opts.Account.Username, "uuid", opts.Account.UUID)
+	clog.Debug("display env",
+		"WAYLAND_DISPLAY", os.Getenv("WAYLAND_DISPLAY"),
+		"DISPLAY", os.Getenv("DISPLAY"),
+		"XDG_RUNTIME_DIR", os.Getenv("XDG_RUNTIME_DIR"))
+
 	javaBin, err := java.Resolve(meta.JavaVersion.MajorVersion, opts.JavaPath)
 	if err != nil {
 		return err
 	}
+	clog.Debug("resolved java", "path", javaBin, "want_major", meta.JavaVersion.MajorVersion)
 
 	ctx := manifest.CurrentContext()
 
@@ -84,6 +92,11 @@ func Launch(opts Options) error {
 	args = append(args, meta.MainClass)
 	args = append(args, meta.GameArgs(ctx, vars)...)
 
+	clog.Debug("classpath", "entries", len(cp))
+	clog.Debug("game dir", "path", gameDir)
+	clog.Debug("natives dir", "path", nativesDir)
+	clog.Debug("launch command", "java", javaBin, "args", strings.Join(args, " "))
+
 	logDir := filepath.Join(gameDir, "logs")
 	if err := store.Ensure(logDir); err != nil {
 		return err
@@ -101,8 +114,10 @@ func Launch(opts Options) error {
 
 	fmt.Fprintf(os.Stderr, "launching %s as %s (java: %s)\n", opts.VersionID, opts.Account.Username, javaBin)
 	if err := cmd.Run(); err != nil {
+		clog.Error("minecraft exited", "version", opts.VersionID, "err", err.Error())
 		return fmt.Errorf("minecraft exited: %w", err)
 	}
+	clog.Info("minecraft exited cleanly", "version", opts.VersionID)
 	return nil
 }
 

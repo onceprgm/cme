@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/onceprgm/cme/internal/clog"
 	"github.com/onceprgm/cme/internal/download"
 	"github.com/onceprgm/cme/internal/manifest"
 	"github.com/onceprgm/cme/internal/store"
@@ -23,6 +24,8 @@ func Install(v *manifest.Version, progress func(stage string, done, total int)) 
 	if err != nil {
 		return nil, err
 	}
+
+	clog.Info("install", "version", meta.ID, "type", meta.Type, "java", meta.JavaVersion.MajorVersion, "asset_index", meta.AssetIndex.ID)
 
 	dir := store.VersionDir(meta.ID)
 	if err := store.Ensure(dir); err != nil {
@@ -67,6 +70,8 @@ func Install(v *manifest.Version, progress func(stage string, done, total int)) 
 			natives = append(natives, nativeLib{lib: l, file: f})
 		}
 	}
+
+	clog.Debug("libraries", "resolved", len(libs), "to_download", len(tasks), "natives", len(natives))
 
 	if err := download.All(tasks, download.DefaultWorkers(), func(done, total int) {
 		progress("libraries", done, total)
@@ -130,6 +135,8 @@ func installAssets(meta *manifest.VersionMeta, progress func(stage string, done,
 			SHA1: o.Hash,
 		})
 	}
+
+	clog.Debug("assets", "index", meta.AssetIndex.ID, "objects", len(idx.Objects), "to_download", len(tasks))
 
 	return download.All(tasks, download.DefaultWorkers(), func(done, total int) {
 		progress("assets", done, total)

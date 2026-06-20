@@ -162,10 +162,6 @@ func cmdVersion(args []string) error {
 		}
 	}
 
-	if err := preflight.RequireOnline(); err != nil {
-		return err
-	}
-
 	m, err := manifest.Fetch()
 	if err != nil {
 		return err
@@ -198,7 +194,7 @@ func cmdInstall(args []string) error {
 		return err
 	}
 
-	m, err := manifest.Fetch()
+	m, err := manifest.FetchFresh()
 	if err != nil {
 		return err
 	}

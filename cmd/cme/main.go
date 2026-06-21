@@ -24,7 +24,7 @@ Usage:
   cme help
 
 Global flags:
-  -v, --debug    mirror the detailed launcher log to stderr
+  -v, --verbose, --debug    mirror the detailed launcher log to stderr
 
 The full launcher log is always written to $XDG_STATE_HOME/cme/cme.log.
 `

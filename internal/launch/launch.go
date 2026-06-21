@@ -13,11 +13,12 @@ import (
 	"github.com/onceprgm/cme/internal/java"
 	"github.com/onceprgm/cme/internal/manifest"
 	"github.com/onceprgm/cme/internal/store"
+	"github.com/onceprgm/cme/internal/ui"
 )
 
 const (
 	launcherName    = "cme"
-	launcherVersion = "0.1.0-alpha"
+	launcherVersion = "0.1.1-alpha"
 )
 
 type Options struct {
@@ -112,7 +113,7 @@ func Launch(opts Options) error {
 	cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
 	cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
 
-	fmt.Fprintf(os.Stderr, "launching %s as %s (java: %s)\n", opts.VersionID, opts.Account.Username, javaBin)
+	ui.Info("launching %s as %s (java: %s)", opts.VersionID, opts.Account.Username, javaBin)
 	if err := cmd.Run(); err != nil {
 		clog.Error("minecraft exited", "version", opts.VersionID, "err", err.Error())
 		return fmt.Errorf("minecraft exited: %w", err)

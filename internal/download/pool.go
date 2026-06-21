@@ -57,6 +57,7 @@ func All(tasks []Task, workers int, progress func(done, total int)) error {
 				if err := File(it.task.URL, it.task.Dest, it.task.SHA1, it.task.Size); err != nil {
 					errs[it.i] = err
 					cancel()
+					continue
 				}
 				if progress != nil {
 					progress(int(done.Add(1)), total)

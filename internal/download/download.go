@@ -34,9 +34,9 @@ type permanentError struct{ err error }
 func (e permanentError) Error() string { return e.err.Error() }
 func (e permanentError) Unwrap() error { return e.err }
 
-func File(url, dest, wantSHA1 string) error {
+func File(url, dest, wantSHA1 string, wantSize int64) error {
 	if wantSHA1 != "" {
-		if ok, err := verify(dest, wantSHA1); err == nil && ok {
+		if ok, err := verify(dest, wantSHA1, wantSize); err == nil && ok {
 			return nil
 		}
 	}
@@ -47,7 +47,7 @@ func File(url, dest, wantSHA1 string) error {
 
 	var err error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		err = fetch(url, dest, wantSHA1)
+		err = fetch(url, dest, wantSHA1, wantSize)
 		if err == nil {
 			return nil
 		}
@@ -62,7 +62,7 @@ func File(url, dest, wantSHA1 string) error {
 	return fmt.Errorf("download %s: gave up after %d attempts: %w", url, maxRetries, err)
 }
 
-func fetch(url, dest, wantSHA1 string) error {
+func fetch(url, dest, wantSHA1 string, wantSize int64) error {
 	resp, err := httpClient.Get(url)
 	if err != nil {
 		return fmt.Errorf("download %s: %w", url, err)
@@ -84,13 +84,18 @@ func fetch(url, dest, wantSHA1 string) error {
 	}
 
 	h := sha1.New()
-	_, err = io.Copy(f, io.TeeReader(resp.Body, h))
+	n, err := io.Copy(f, io.TeeReader(resp.Body, h))
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
 		os.Remove(part)
 		return fmt.Errorf("download %s: %w", url, err)
+	}
+
+	if wantSize > 0 && n != wantSize {
+		os.Remove(part)
+		return permanentError{fmt.Errorf("download %s: size mismatch: want %d, got %d", url, wantSize, n)}
 	}
 
 	if wantSHA1 != "" {
@@ -103,7 +108,15 @@ func fetch(url, dest, wantSHA1 string) error {
 	return os.Rename(part, dest)
 }
 
-func verify(path, wantSHA1 string) (bool, error) {
+func verify(path, wantSHA1 string, wantSize int64) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	if wantSize > 0 && info.Size() != wantSize {
+		return false, nil
+	}
+
 	f, err := os.Open(path)
 	if err != nil {
 		return false, err

@@ -37,7 +37,7 @@ func Install(v *manifest.Version, progress func(stage string, done, total int)) 
 
 	progress("client", 0, 1)
 	jar := filepath.Join(dir, meta.ID+".jar")
-	if err := download.File(meta.Downloads.Client.URL, jar, meta.Downloads.Client.SHA1); err != nil {
+	if err := download.File(meta.Downloads.Client.URL, jar, meta.Downloads.Client.SHA1, meta.Downloads.Client.Size); err != nil {
 		return nil, err
 	}
 	progress("client", 1, 1)
@@ -58,6 +58,7 @@ func Install(v *manifest.Version, progress func(stage string, done, total int)) 
 			URL:  f.URL,
 			Dest: filepath.Join(store.LibrariesDir(), filepath.FromSlash(f.Path)),
 			SHA1: f.SHA1,
+			Size: f.Size,
 		})
 	}
 
@@ -133,6 +134,7 @@ func installAssets(meta *manifest.VersionMeta, progress func(stage string, done,
 			URL:  o.URL(),
 			Dest: filepath.Join(objectsDir, filepath.FromSlash(o.Path())),
 			SHA1: o.Hash,
+			Size: o.Size,
 		})
 	}
 

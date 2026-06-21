@@ -11,6 +11,7 @@ type Task struct {
 	URL  string
 	Dest string
 	SHA1 string
+	Size int64
 }
 
 func DefaultWorkers() int {
@@ -53,7 +54,7 @@ func All(tasks []Task, workers int, progress func(done, total int)) error {
 				if ctx.Err() != nil {
 					return
 				}
-				if err := File(it.task.URL, it.task.Dest, it.task.SHA1); err != nil {
+				if err := File(it.task.URL, it.task.Dest, it.task.SHA1, it.task.Size); err != nil {
 					errs[it.i] = err
 					cancel()
 				}

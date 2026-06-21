@@ -4,10 +4,10 @@ Minimal Minecraft launcher for Linux. Fast. Offline-ready. No bloat.
 
 `cme` is a command-line Minecraft launcher with zero dependencies - the entire
 thing is built on the Go standard library. It installs and launches vanilla
-Minecraft in offline mode, with parallel downloads, SHA-1 verification, and
-XDG-compliant file layout. No GUI, no Electron, no runtime deps.
+Minecraft in offline mode, with parallel downloads, SHA-1 and size verification,
+and an XDG-compliant file layout. No GUI, no Electron, no runtime deps.
 
-> **Status: alpha (`0.1.0-alpha`).** Installing and launching work. Account
+> **Status: alpha (`0.1.1-alpha`).** Installing and launching work. Account
 > system is offline-only. Linux x86_64 is the only tested platform.
 
 ## Requirements
@@ -20,7 +20,7 @@ XDG-compliant file layout. No GUI, no Electron, no runtime deps.
 
 ## Install
 
-> Binary releases are coming. For now, build from source:
+> Prebuilt Linux x86_64 binaries are on the [Releases](https://github.com/onceprgm/cme/releases) page. Or build from source:
 
 ```sh
 git clone https://github.com/onceprgm/cme
@@ -38,17 +38,26 @@ cme version list --snapshot
 cme version list --old-beta
 cme version list --old-alpha
 
-# install a version: client JAR + libraries + natives + assets, all SHA-1 verified
+# install a version: client JAR + libraries + natives + assets, verified by SHA-1 and size
 cme install 1.20.1
 
 # launch in offline mode
 cme launch 1.20.1 --username Steve
 cme launch 1.20.1 --username Steve --ram 4
+cme launch 1.20.1 --username Steve --jvm-arg -XX:+UseG1GC   # extra JVM args, repeatable
 ```
 
 `--ram` is in gigabytes and sets both `-Xmx` and `-Xms`. The offline UUID is
 derived deterministically from the username, so it stays consistent across
 sessions and matches what a server computes for the same name.
+
+`--jvm-arg` passes one extra JVM argument and may be repeated. Pass `-v` (or
+`--debug`, or set `CME_DEBUG=1`) to mirror the detailed launcher log to stderr;
+either way the full log is always written to `~/.local/state/cme/cme.log`, which
+is the first place to look when a launch fails.
+
+The version list is cached, so `cme version list` keeps working offline after the
+first run.
 
 ### Output
  
@@ -85,6 +94,10 @@ sessions and matches what a server computes for the same name.
   libraries/          shared across versions
   assets/             shared across versions
   instances/<id>/     per-version game directory (saves, logs, options)
+~/.cache/cme/
+  version_manifest_v2.json   cached version manifest (offline fallback)
+~/.local/state/cme/
+  cme.log             launcher diagnostic log (last run)
 ```
 
 ## Roadmap

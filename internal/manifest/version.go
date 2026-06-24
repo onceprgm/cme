@@ -11,10 +11,11 @@ import (
 )
 
 type VersionMeta struct {
-	ID          string `json:"id"`
-	Type        string `json:"type"`
-	MainClass   string `json:"mainClass"`
-	JavaVersion struct {
+	ID           string `json:"id"`
+	Type         string `json:"type"`
+	MainClass    string `json:"mainClass"`
+	InheritsFrom string `json:"inheritsFrom"`
+	JavaVersion  struct {
 		MajorVersion int `json:"majorVersion"`
 	} `json:"javaVersion"`
 	AssetIndex struct {

@@ -4,6 +4,7 @@ import "strings"
 
 type Library struct {
 	Name      string `json:"name"`
+	URL       string `json:"url"`
 	Downloads struct {
 		Artifact    *LibFile           `json:"artifact"`
 		Classifiers map[string]LibFile `json:"classifiers"`
@@ -43,19 +44,60 @@ func (l *Library) ExcludePatterns() []string {
 	return l.Extract.Exclude
 }
 
+func (l *Library) Artifact() (LibFile, bool) {
+	if l.Downloads.Artifact != nil && l.Downloads.Artifact.Path != "" {
+		return *l.Downloads.Artifact, true
+	}
+	path := mavenPath(l.Name)
+	if path == "" {
+		return LibFile{}, false
+	}
+	f := LibFile{Path: path}
+	if l.URL != "" {
+		f.URL = strings.TrimSuffix(l.URL, "/") + "/" + path
+	}
+	return f, true
+}
+
+func (l *Library) MavenKey() string {
+	parts := strings.Split(l.Name, ":")
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[0] + ":" + parts[1]
+}
+
+func mavenPath(name string) string {
+	parts := strings.Split(name, ":")
+	if len(parts) < 3 {
+		return ""
+	}
+	group := strings.ReplaceAll(parts[0], ".", "/")
+	artifact, version := parts[1], parts[2]
+	file := artifact + "-" + version
+	if len(parts) > 3 {
+		file += "-" + parts[3]
+	}
+	return group + "/" + artifact + "/" + version + "/" + file + ".jar"
+}
+
 func (m *VersionMeta) ClasspathPaths(ctx RuleContext) []string {
 	var out []string
 	seen := map[string]bool{}
 	for _, l := range m.ResolvedLibraries(ctx) {
-		if l.Downloads.Artifact == nil || l.Downloads.Artifact.Path == "" {
+		f, ok := l.Artifact()
+		if !ok || f.Path == "" {
 			continue
 		}
-		p := l.Downloads.Artifact.Path
-		if seen[p] {
+		key := l.MavenKey()
+		if key == "" {
+			key = f.Path
+		}
+		if seen[key] {
 			continue
 		}
-		seen[p] = true
-		out = append(out, p)
+		seen[key] = true
+		out = append(out, f.Path)
 	}
 	return out
 }

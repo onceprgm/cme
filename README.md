@@ -1,88 +1,118 @@
-# cme.sh
+<p align="center">
+  <img src="assets/readme/hero.svg" alt="cme — minimal Minecraft launcher for Linux" width="100%">
+</p>
 
-Minimal Minecraft launcher for Linux. Fast. Offline-ready. No bloat.
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-3ddc84"></a>
+  <img alt="Platform: Linux" src="https://img.shields.io/badge/platform-Linux-2088c9">
+  <img alt="Dependencies: zero" src="https://img.shields.io/badge/dependencies-0-3ddc84">
+  <img alt="Built with Go 1.22+" src="https://img.shields.io/badge/Go-1.22%2B-00add8?logo=go&logoColor=white">
+  <a href="https://github.com/onceprgm/cme/releases"><img alt="Release" src="https://img.shields.io/github/v/release/onceprgm/cme?include_prereleases&color=7bd45a"></a>
+</p>
 
-`cme` is a command-line Minecraft launcher with zero dependencies - the entire
-thing is built on the Go standard library. It installs and launches vanilla
-Minecraft in offline mode, with parallel downloads, SHA-1 and size verification,
-and an XDG-compliant file layout. No GUI, no Electron, no runtime deps.
+<p align="center">
+  <b>A zero-dependency command-line Minecraft launcher for Linux.</b><br>
+  Installs and launches vanilla and Fabric in offline mode — no GUI, no Electron, no runtime deps.
+</p>
 
-> **Status: alpha (`0.1.1-alpha`).** Installing and launching work. Account
-> system is offline-only. Linux x86_64 is the only tested platform.
+<p align="center">
+  <a href="#quick-start">Quick&nbsp;start</a> &nbsp;·&nbsp;
+  <a href="#why-cme">Why</a> &nbsp;·&nbsp;
+  <a href="#usage">Usage</a> &nbsp;·&nbsp;
+  <a href="#version-support">Support</a> &nbsp;·&nbsp;
+  <a href="#file-layout">Layout</a> &nbsp;·&nbsp;
+  <a href="#roadmap">Roadmap</a>
+</p>
 
-## Requirements
+> [!NOTE]
+> **Alpha (`0.1.1-alpha`).** Installing and launching work. Accounts are
+> offline-only. Linux x86_64 is the only tested platform.
 
-- Linux (x86_64; ARM is untested)
-- [Go](https://golang.org) 1.22+ to build
-- A Java runtime matching the version you want to play
-  (Java 8 for old versions, 17 for 1.18–1.20, 21 for 1.20.5+).
-  `cme` finds Java in your `PATH` or `/usr/lib/jvm`. Automatic install is planned.
+---
 
-## Install
-
-> Prebuilt Linux x86_64 binaries are on the [Releases](https://github.com/onceprgm/cme/releases) page. Or build from source:
+## Quick start
 
 ```sh
-git clone https://github.com/onceprgm/cme
-cd cme
+# build it (or grab a binary from the Releases page)
 go build -o cme ./cmd/cme
+
+# vanilla
+cme install 1.20.1
+cme launch 1.20.1 --username Steve --ram 4
+
+# with Fabric (vanilla base is installed automatically)
+cme install fabric 1.21.4
+cme launch fabric 1.21.4 --username Steve --ram 4
 ```
+
+## Why cme
+
+- **Zero dependencies** &mdash; a single static Go binary, nothing to install beside it.
+- **Verified downloads** &mdash; every file checked by SHA-1 *and* size, in parallel, with retry.
+- **Offline-first** &mdash; deterministic offline UUID; the version list is cached and keeps working without a network.
+- **Fabric** &mdash; `cme install fabric <version>`, merged against its vanilla base at launch. Quilt and Forge are on the roadmap.
+- **Scriptable** &mdash; data on stdout, progress on stderr, nothing that blocks a pipe.
+- **XDG-clean** &mdash; data, cache and state land where they belong; each version gets its own instance directory.
 
 ## Usage
 
 ```sh
 # list versions (filter by type)
 cme version list
-cme version list --release
-cme version list --snapshot
-cme version list --old-beta
-cme version list --old-alpha
+cme version list --release        # or --snapshot | --old-beta | --old-alpha
 
-# install a version: client JAR + libraries + natives + assets, verified by SHA-1 and size
+# install: client JAR + libraries + natives + assets, verified by SHA-1 and size
 cme install 1.20.1
+
+# install with Fabric (latest stable loader by default, or pin one)
+cme install fabric 1.21.4
+cme install fabric 1.21.4 0.16.9
 
 # launch in offline mode
 cme launch 1.20.1 --username Steve
 cme launch 1.20.1 --username Steve --ram 4
-cme launch 1.20.1 --username Steve --jvm-arg -XX:+UseG1GC   # extra JVM args, repeatable
+cme launch fabric 1.21.4 --username Steve --ram 4
+cme launch 1.20.1 --username Steve --jvm-arg -XX:+UseG1GC   # repeatable
 ```
 
 `--ram` is in gigabytes and sets both `-Xmx` and `-Xms`. The offline UUID is
 derived deterministically from the username, so it stays consistent across
-sessions and matches what a server computes for the same name.
+sessions and matches what a server computes for the same name. `--jvm-arg`
+passes one extra JVM argument and may be repeated.
 
-`--jvm-arg` passes one extra JVM argument and may be repeated. Pass `-v` (or
-`--debug`, or set `CME_DEBUG=1`) to mirror the detailed launcher log to stderr;
-either way the full log is always written to `~/.local/state/cme/cme.log`, which
-is the first place to look when a launch fails.
+> [!TIP]
+> Pass `-v` (or `--debug`, or set `CME_DEBUG=1`) to mirror the detailed launcher
+> log to stderr. Either way the full log is always written to
+> `~/.local/state/cme/cme.log` &mdash; the first place to look when a launch fails.
 
-The version list is cached, so `cme version list` keeps working offline after the
-first run.
+The version list is cached, so `cme version list` keeps working offline after
+the first run.
 
-### Output
- 
+<details>
+<summary>Sample output</summary>
+
 ```
 * 26.2-rc-1                  snapshot   2026-06-11
   26.2-pre-6                 snapshot   2026-06-10
   26.2-pre-5                 snapshot   2026-06-08
-  26.2-pre-4                 snapshot   2026-06-04
   ...
 * 26.1.2                     release    2026-04-09
   ...
   rd-132328                  old_alpha  2009-05-13
-  rd-132211                  old_alpha  2009-05-13
 ```
- 
+
 `*` marks the latest release or snapshot.
 
-### Version support
+</details>
 
-| Versions        | Status                                           |
-|-----------------|--------------------------------------------------|
-| 1.7.3 and newer   | Fully supported                                  |
-| 1.6.x and older   | Launches, but sound and languages may be missing¹   |
+## Version support
 
-¹ These use the legacy asset layout, which isn't implemented yet (planned).
+| Versions          | Status                                             |
+|-------------------|----------------------------------------------------|
+| 1.7.3 and newer   | Fully supported                                    |
+| 1.6.x and older   | Launches, but sound and languages may be missing¹  |
+
+<sub>¹ These use the legacy asset layout, which isn't implemented yet (planned).</sub>
 
 ## File layout
 
@@ -100,19 +130,43 @@ first run.
   cme.log             launcher diagnostic log (last run)
 ```
 
+<details>
+<summary>Requirements</summary>
+
+- Linux (x86_64; ARM is untested)
+- [Go](https://golang.org) 1.22+ to build
+- A Java runtime matching the version you want to play (Java 8 for old versions,
+  17 for 1.18–1.20, 21 for 1.20.5+). `cme` finds Java in your `PATH` or
+  `/usr/lib/jvm`. Automatic install is planned.
+
+Prebuilt Linux x86_64 binaries are on the
+[Releases](https://github.com/onceprgm/cme/releases) page.
+
+</details>
+
 ## Roadmap
 
 - [x] fetch and parse the version manifest
-- [x] install vanilla versions (client, libraries, natives, assets - SHA-1 verified)
+- [x] install vanilla versions (client, libraries, natives, assets — SHA-1 and size verified)
 - [x] parallel downloads with retry and resume-by-hash
 - [x] launch installed versions in offline mode
-- [ ] Fabric and Quilt
+- [x] diagnostic log and `-v`/`--debug`
+- [x] Fabric
+- [ ] Quilt
 - [ ] integrity check (`cme verify`)
 - [ ] automatic Java installation
 - [ ] profiles and config file
 - [ ] Forge / NeoForge
 - [ ] legacy asset layout (sound for pre-1.9 versions)
 
-## License
+## Development
 
-[MIT](LICENSE)
+Everything through `0.1.0-alpha` was written by hand. From `0.1.1-alpha` onward
+(diagnostic logging, manifest caching, Fabric loader support) development has
+been done with the assistance of AI (Claude Code).
+
+---
+
+<p align="center">
+  <sub><a href="LICENSE">MIT</a> &nbsp;·&nbsp; built for the terminal, not the mouse</sub>
+</p>

@@ -42,6 +42,19 @@ func Launch(opts Options) error {
 		"DISPLAY", os.Getenv("DISPLAY"),
 		"XDG_RUNTIME_DIR", os.Getenv("XDG_RUNTIME_DIR"))
 
+	clientID := opts.VersionID
+	if meta.InheritsFrom != "" {
+		parentID := meta.InheritsFrom
+		parent, perr := manifest.LoadVersionMeta(filepath.Join(store.VersionDir(parentID), parentID+".json"))
+		if perr != nil {
+			return fmt.Errorf("load parent version %s: %w (install it first)", parentID, perr)
+		}
+		meta = manifest.Merge(parent, meta)
+		clientID = parentID
+		clog.Debug("resolved inheritance", "id", opts.VersionID, "parent", parentID)
+	}
+	clientDir := store.VersionDir(clientID)
+
 	javaBin, err := java.Resolve(meta.JavaVersion.MajorVersion, opts.JavaPath)
 	if err != nil {
 		return err
@@ -54,7 +67,7 @@ func Launch(opts Options) error {
 	for _, p := range meta.ClasspathPaths(ctx) {
 		cp = append(cp, filepath.Join(store.LibrariesDir(), filepath.FromSlash(p)))
 	}
-	cp = append(cp, filepath.Join(versionDir, opts.VersionID+".jar"))
+	cp = append(cp, filepath.Join(clientDir, clientID+".jar"))
 	classpath := strings.Join(cp, string(os.PathListSeparator))
 
 	gameDir := opts.GameDir
@@ -65,7 +78,7 @@ func Launch(opts Options) error {
 		return err
 	}
 
-	nativesDir := filepath.Join(versionDir, "natives")
+	nativesDir := filepath.Join(clientDir, "natives")
 
 	vars := map[string]string{
 		"auth_player_name":  opts.Account.Username,

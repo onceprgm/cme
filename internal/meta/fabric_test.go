@@ -15,9 +15,9 @@ func TestSelectLoaderPrefersStable(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &list); err != nil {
 		t.Fatal(err)
 	}
-	got, ok := selectLoader(list)
+	got, ok := selectStable(list)
 	if !ok || got != "0.16.9" {
-		t.Errorf("selectLoader = %q, %v; want 0.16.9, true", got, ok)
+		t.Errorf("selectStable = %q, %v; want 0.16.9, true", got, ok)
 	}
 }
 
@@ -25,14 +25,14 @@ func TestSelectLoaderFallsBackToNewest(t *testing.T) {
 	list := []loaderEntry{}
 	list = append(list, loaderEntry{})
 	list[0].Loader.Version = "0.17.0-beta.1"
-	got, ok := selectLoader(list)
+	got, ok := selectStable(list)
 	if !ok || got != "0.17.0-beta.1" {
-		t.Errorf("selectLoader = %q, %v; want newest fallback", got, ok)
+		t.Errorf("selectStable = %q, %v; want newest fallback", got, ok)
 	}
 }
 
 func TestSelectLoaderEmpty(t *testing.T) {
-	if _, ok := selectLoader(nil); ok {
+	if _, ok := selectStable(nil); ok {
 		t.Error("expected no loader for empty list")
 	}
 }

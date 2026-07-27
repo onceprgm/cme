@@ -22,9 +22,9 @@ const usage = `cme - minimal Minecraft launcher for Linux
 Usage:
   cme version list [--release|--snapshot|--old-beta|--old-alpha]
   cme install <version>
-  cme install fabric <version> [loader]
+  cme install fabric|quilt <version> [loader]
   cme launch <version> --username <name> [--ram <GB>]
-  cme launch fabric <version> [loader] --username <name> [--ram <GB>]
+  cme launch fabric|quilt <version> [loader] --username <name> [--ram <GB>]
   cme help
 
 Global flags:
@@ -51,17 +51,18 @@ const installUsage = `cme install - download a Minecraft version
 
 Usage:
   cme install <version>
-  cme install fabric <version> [loader]
+  cme install fabric|quilt <version> [loader]
 
 Downloads the client JAR, libraries, native libraries and assets for the given
 version, all verified by SHA-1. Already-present files are skipped.
 
-With 'fabric', the vanilla base is installed first, then the Fabric loader
+With 'fabric' or 'quilt', the vanilla base is installed first, then the loader
 profile is fetched and its libraries downloaded. Without a loader version, the
 latest stable one is used. Examples:
 
   cme install 1.20.1
   cme install fabric 1.21.4
+  cme install quilt 1.21.4
   cme install fabric 1.21.4 0.16.9
 `
 
@@ -69,19 +70,20 @@ const launchUsage = `cme launch - run an installed version in offline mode
 
 Usage:
   cme launch <version> --username <name> [--ram <GB>]
-  cme launch fabric <version> [loader] --username <name> [--ram <GB>]
+  cme launch fabric|quilt <version> [loader] --username <name> [--ram <GB>]
 
 Flags:
   --username <name>   player name (required; offline mode)
   --ram <GB>          memory in gigabytes, sets -Xmx and -Xms (optional)
   --jvm-arg <arg>     extra JVM argument, repeatable (advanced)
 
-The version must be installed first with 'cme install'. With 'fabric' and no
-loader version, the installed loader is used (cme asks if several are present).
-Examples:
+The version must be installed first with 'cme install'. With 'fabric' or 'quilt'
+and no loader version, the installed loader is used (cme asks if several are
+present). Examples:
 
   cme launch 1.20.1 --username Steve --ram 4
   cme launch fabric 1.21.4 --username Steve --ram 4
+  cme launch quilt 1.21.4 --username Steve --ram 4
 `
 
 func main() {
@@ -200,12 +202,12 @@ func cmdInstall(args []string) error {
 		return nil
 	}
 
-	if len(args) >= 1 && args[0] == "fabric" {
-		return cmdInstallFabric(args[1:])
+	if len(args) >= 1 && (args[0] == "fabric" || args[0] == "quilt") {
+		return cmdInstallModded(args[0], args[1:])
 	}
 
 	if len(args) != 1 {
-		return fmt.Errorf("usage: cme install <version> | cme install fabric <version> [loader]")
+		return fmt.Errorf("usage: cme install <version> | cme install fabric|quilt <version> [loader]")
 	}
 	id := args[0]
 
@@ -234,14 +236,19 @@ func cmdInstall(args []string) error {
 	return nil
 }
 
-func cmdInstallFabric(args []string) error {
+func cmdInstallModded(kind string, args []string) error {
 	if len(args) < 1 || len(args) > 2 {
-		return fmt.Errorf("usage: cme install fabric <version> [loader]")
+		return fmt.Errorf("usage: cme install %s <version> [loader]", kind)
 	}
 	game := args[0]
 	loader := ""
 	if len(args) == 2 {
 		loader = args[1]
+	}
+
+	install := installer.InstallFabric
+	if kind == "quilt" {
+		install = installer.InstallQuilt
 	}
 
 	if err := preflight.RequireOnline(); err != nil {
@@ -258,24 +265,25 @@ func cmdInstallFabric(args []string) error {
 		return fmt.Errorf("version %q not found, try: cme version list", game)
 	}
 
-	ui.Info("installing fabric for %s", game)
-	meta, err := installer.InstallFabric(v, loader, func(stage string, done, total int) {
+	ui.Info("installing %s for %s", kind, game)
+	meta, err := install(v, loader, func(stage string, done, total int) {
 		ui.Progress(stage, done, total)
 	})
 	if err != nil {
 		return err
 	}
 	ui.Success("installed %s (requires java %d)", meta.ID, meta.JavaVersion.MajorVersion)
-	ui.Info("launch it with: cme launch fabric %s --username <name>", game)
+	ui.Info("launch it with: cme launch %s %s --username <name>", kind, game)
 	return nil
 }
 
 func resolveLaunchTarget(args []string) (string, []string, error) {
-	if args[0] != "fabric" {
+	kind := args[0]
+	if kind != "fabric" && kind != "quilt" {
 		return args[0], args[1:], nil
 	}
 	if len(args) < 2 {
-		return "", nil, fmt.Errorf("usage: cme launch fabric <version> [loader] --username <name>")
+		return "", nil, fmt.Errorf("usage: cme launch %s <version> [loader] --username <name>", kind)
 	}
 	game := args[1]
 	rest := args[2:]
@@ -284,16 +292,16 @@ func resolveLaunchTarget(args []string) (string, []string, error) {
 		loader = rest[0]
 		rest = rest[1:]
 	}
-	id, err := resolveFabricID(game, loader)
+	id, err := resolveModdedID(kind, game, loader)
 	return id, rest, err
 }
 
-func resolveFabricID(game, loader string) (string, error) {
+func resolveModdedID(kind, game, loader string) (string, error) {
+	prefix := kind + "-loader-"
 	if loader != "" {
-		return "fabric-loader-" + loader + "-" + game, nil
+		return prefix + loader + "-" + game, nil
 	}
 
-	prefix := "fabric-loader-"
 	suffix := "-" + game
 	var matches []string
 	entries, _ := os.ReadDir(store.VersionsDir())
@@ -306,12 +314,12 @@ func resolveFabricID(game, loader string) (string, error) {
 
 	switch len(matches) {
 	case 0:
-		return "", fmt.Errorf("no fabric install for %s; run: cme install fabric %s", game, game)
+		return "", fmt.Errorf("no %s install for %s; run: cme install %s %s", kind, game, kind, game)
 	case 1:
 		return matches[0], nil
 	default:
-		return "", fmt.Errorf("multiple fabric loaders for %s: %s; specify one, e.g. cme launch fabric %s <loader>",
-			game, strings.Join(matches, ", "), game)
+		return "", fmt.Errorf("multiple %s loaders for %s: %s; specify one, e.g. cme launch %s %s <loader>",
+			kind, game, strings.Join(matches, ", "), kind, game)
 	}
 }
 

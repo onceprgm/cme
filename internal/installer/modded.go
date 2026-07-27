@@ -19,19 +19,33 @@ import (
 var sidecarClient = &http.Client{Timeout: 15 * time.Second}
 
 func InstallFabric(vanilla *manifest.Version, loader string, progress func(stage string, done, total int)) (*manifest.VersionMeta, error) {
+	return installModded(vanilla, loader, "fabric", meta.FabricLatestLoader, meta.FabricProfile, progress)
+}
+
+func InstallQuilt(vanilla *manifest.Version, loader string, progress func(stage string, done, total int)) (*manifest.VersionMeta, error) {
+	return installModded(vanilla, loader, "quilt", meta.QuiltLatestLoader, meta.QuiltProfile, progress)
+}
+
+func installModded(
+	vanilla *manifest.Version,
+	loader, kind string,
+	latest func(game string) (string, error),
+	fetchProfile func(game, loader string) (*manifest.VersionMeta, []byte, error),
+	progress func(stage string, done, total int),
+) (*manifest.VersionMeta, error) {
 	base, err := Install(vanilla, progress)
 	if err != nil {
 		return nil, err
 	}
 
 	if loader == "" {
-		loader, err = meta.FabricLatestLoader(vanilla.ID)
+		loader, err = latest(vanilla.ID)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	profile, raw, err := meta.FabricProfile(vanilla.ID, loader)
+	profile, raw, err := fetchProfile(vanilla.ID, loader)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +62,7 @@ func InstallFabric(vanilla *manifest.Version, loader string, progress func(stage
 		return nil, err
 	}
 
-	clog.Info("installed fabric", "id", profile.ID, "loader", loader, "game", vanilla.ID)
+	clog.Info("installed "+kind, "id", profile.ID, "loader", loader, "game", vanilla.ID)
 	return manifest.Merge(base, profile), nil
 }
 
@@ -61,7 +75,7 @@ func downloadLoaderLibraries(libs []manifest.Library, progress func(stage string
 		}
 		sha, err := mavenSHA1(f.URL)
 		if err != nil {
-			clog.Warn("fabric: no sha1 sidecar, downloading unverified", "lib", l.Name, "err", err.Error())
+			clog.Warn("loader: no sha1 sidecar, downloading unverified", "lib", l.Name, "err", err.Error())
 		}
 		tasks = append(tasks, download.Task{
 			URL:  f.URL,

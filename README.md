@@ -12,7 +12,7 @@
 
 <p align="center">
   <b>A zero-dependency command-line Minecraft launcher for Linux.</b><br>
-  Installs and launches vanilla and Fabric in offline mode — no GUI, no Electron, no runtime deps.
+  Installs and launches vanilla, Fabric and Quilt in offline mode — no GUI, no Electron, no runtime deps.
 </p>
 
 <p align="center">
@@ -50,7 +50,7 @@ cme launch fabric 1.21.4 --username Steve --ram 4
 - **Zero dependencies** &mdash; a single static Go binary, nothing to install beside it.
 - **Verified downloads** &mdash; every file checked by SHA-1 *and* size, in parallel, with retry.
 - **Offline-first** &mdash; deterministic offline UUID; the version list is cached and keeps working without a network.
-- **Fabric** &mdash; `cme install fabric <version>`, merged against its vanilla base at launch. Quilt and Forge are on the roadmap.
+- **Fabric &amp; Quilt** &mdash; `cme install fabric <version>` (or `quilt`), merged against the vanilla base at launch. Forge is on the roadmap.
 - **Scriptable** &mdash; data on stdout, progress on stderr, nothing that blocks a pipe.
 - **XDG-clean** &mdash; data, cache and state land where they belong; each version gets its own instance directory.
 
@@ -64,14 +64,16 @@ cme version list --release        # or --snapshot | --old-beta | --old-alpha
 # install: client JAR + libraries + natives + assets, verified by SHA-1 and size
 cme install 1.20.1
 
-# install with Fabric (latest stable loader by default, or pin one)
+# install with Fabric or Quilt (latest stable loader by default, or pin one)
 cme install fabric 1.21.4
+cme install quilt 1.21.4
 cme install fabric 1.21.4 0.16.9
 
 # launch in offline mode
 cme launch 1.20.1 --username Steve
 cme launch 1.20.1 --username Steve --ram 4
 cme launch fabric 1.21.4 --username Steve --ram 4
+cme launch quilt 1.21.4 --username Steve --ram 4
 cme launch 1.20.1 --username Steve --jvm-arg -XX:+UseG1GC   # repeatable
 ```
 
@@ -151,8 +153,7 @@ Prebuilt Linux x86_64 binaries are on the
 - [x] parallel downloads with retry and resume-by-hash
 - [x] launch installed versions in offline mode
 - [x] diagnostic log and `-v`/`--debug`
-- [x] Fabric
-- [ ] Quilt
+- [x] Fabric and Quilt
 - [ ] integrity check (`cme verify`)
 - [ ] automatic Java installation
 - [ ] profiles and config file

@@ -64,6 +64,9 @@ cme version list --release        # or --snapshot | --old-beta | --old-alpha
 # install: client JAR + libraries + natives + assets, verified by SHA-1 and size
 cme install 1.20.1
 
+# install a matching Java runtime (Temurin JRE) if you don't already have one
+cme java install 21
+
 # install with Fabric or Quilt (latest stable loader by default, or pin one)
 cme install fabric 1.21.4
 cme install quilt 1.21.4
@@ -158,7 +161,7 @@ interactively. Fields left unset on a profile fall back to `cme config`.
 - [Go](https://golang.org) 1.22+ to build
 - A Java runtime matching the version you want to play (Java 8 for old versions,
   17 for 1.18–1.20, 21 for 1.20.5+). `cme` finds Java in your `PATH` or
-  `/usr/lib/jvm`. Automatic install is planned.
+  `/usr/lib/jvm`, or fetches a Temurin JRE for you with `cme java install <major>`.
 
 Prebuilt Linux x86_64 binaries are on the
 [Releases](https://github.com/onceprgm/cme/releases) page.
@@ -174,7 +177,7 @@ Prebuilt Linux x86_64 binaries are on the
 - [x] diagnostic log and `-v`/`--debug`
 - [x] Fabric and Quilt
 - [x] integrity check (`cme verify`)
-- [ ] automatic Java installation
+- [x] automatic Java installation
 - [x] profiles and config file
 - [ ] Forge / NeoForge
 - [ ] legacy asset layout (sound for pre-1.9 versions)

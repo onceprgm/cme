@@ -30,6 +30,7 @@ Usage:
   cme profile create|list|show|delete ...
   cme run <profile>
   cme config set|get|list ...
+  cme java install|list ...
   cme help
 
 Global flags:
@@ -173,6 +174,8 @@ func run(args []string) error {
 		return cmdRun(args[1:])
 	case "config":
 		return cmdConfig(args[1:])
+	case "java":
+		return cmdJava(args[1:])
 	case "help", "--help", "-h":
 		fmt.Print(usage)
 		return nil

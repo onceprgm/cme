@@ -75,6 +75,9 @@ cme launch 1.20.1 --username Steve --ram 4
 cme launch fabric 1.21.4 --username Steve --ram 4
 cme launch quilt 1.21.4 --username Steve --ram 4
 cme launch 1.20.1 --username Steve --jvm-arg -XX:+UseG1GC   # repeatable
+
+# verify an install and re-download only corrupt or missing files
+cme verify 1.20.1
 ```
 
 `--ram` is in gigabytes and sets both `-Xmx` and `-Xms`. The offline UUID is
@@ -154,7 +157,7 @@ Prebuilt Linux x86_64 binaries are on the
 - [x] launch installed versions in offline mode
 - [x] diagnostic log and `-v`/`--debug`
 - [x] Fabric and Quilt
-- [ ] integrity check (`cme verify`)
+- [x] integrity check (`cme verify`)
 - [ ] automatic Java installation
 - [ ] profiles and config file
 - [ ] Forge / NeoForge

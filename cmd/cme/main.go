@@ -25,6 +25,7 @@ Usage:
   cme install fabric|quilt <version> [loader]
   cme launch <version> --username <name> [--ram <GB>]
   cme launch fabric|quilt <version> [loader] --username <name> [--ram <GB>]
+  cme verify <version>
   cme help
 
 Global flags:
@@ -86,6 +87,22 @@ present). Examples:
   cme launch quilt 1.21.4 --username Steve --ram 4
 `
 
+const verifyUsage = `cme verify - check an installed version and repair broken files
+
+Usage:
+  cme verify <version>
+  cme verify fabric|quilt <version> [loader]
+
+Re-checks the client JAR, libraries and assets of an installed version against
+their SHA-1 and size, then re-downloads only the corrupt or missing files. The
+check runs from local metadata (works offline); only repairs need the network.
+Shared assets are checked by this version's index alone, so other versions are
+never touched. Examples:
+
+  cme verify 1.20.1
+  cme verify fabric 1.21.4
+`
+
 func main() {
 	os.Exit(mainCode())
 }
@@ -144,6 +161,8 @@ func run(args []string) error {
 		return cmdInstall(args[1:])
 	case "launch":
 		return cmdLaunch(args[1:])
+	case "verify":
+		return cmdVerify(args[1:])
 	case "help", "--help", "-h":
 		fmt.Print(usage)
 		return nil
@@ -321,6 +340,35 @@ func resolveModdedID(kind, game, loader string) (string, error) {
 		return "", fmt.Errorf("multiple %s loaders for %s: %s; specify one, e.g. cme launch %s %s <loader>",
 			kind, game, strings.Join(matches, ", "), kind, game)
 	}
+}
+
+func cmdVerify(args []string) error {
+	if wantsHelp(args) {
+		fmt.Print(verifyUsage)
+		return nil
+	}
+	if len(args) < 1 {
+		return fmt.Errorf("usage: cme verify <version> | cme verify fabric|quilt <version> [loader]")
+	}
+
+	id, _, err := resolveLaunchTarget(args)
+	if err != nil {
+		return err
+	}
+
+	ui.Info("verifying %s", id)
+	report, err := installer.Verify(id, func(stage string, done, total int) {
+		ui.Progress(stage, done, total)
+	})
+	if err != nil {
+		return err
+	}
+
+	ui.Success("verified %s: %d ok, %d repaired", id, report.OK, report.Repaired)
+	if report.LoaderPresent > 0 || report.LoaderMissing > 0 {
+		ui.Info("loader libraries: %d present, %d refetched (existence-checked)", report.LoaderPresent, report.LoaderMissing)
+	}
+	return nil
 }
 
 func cmdLaunch(args []string) error {

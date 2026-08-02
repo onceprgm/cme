@@ -108,6 +108,11 @@ func fetch(url, dest, wantSHA1 string, wantSize int64) error {
 	return os.Rename(part, dest)
 }
 
+func Check(dest, wantSHA1 string, wantSize int64) bool {
+	ok, err := verify(dest, wantSHA1, wantSize)
+	return err == nil && ok
+}
+
 func verify(path, wantSHA1 string, wantSize int64) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {

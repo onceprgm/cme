@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"bufio"
 	"fmt"
 	"log/slog"
 	"os"
@@ -8,6 +9,22 @@ import (
 
 	"github.com/onceprgm/cme/internal/clog"
 )
+
+var stdin = bufio.NewReader(os.Stdin)
+
+func Prompt(label, def string) string {
+	if def != "" {
+		fmt.Fprintf(os.Stderr, "%s %s [%s]: ", paint(dim, "?"), label, def)
+	} else {
+		fmt.Fprintf(os.Stderr, "%s %s: ", paint(dim, "?"), label)
+	}
+	line, _ := stdin.ReadString('\n')
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return def
+	}
+	return line
+}
 
 var colorEnabled = detectColor()
 

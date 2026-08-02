@@ -110,6 +110,22 @@ the first run.
 
 </details>
 
+### Profiles
+
+Save a version, loader, account and JVM settings under a name and launch with a
+single command. Each profile gets its own game directory, so saves, mods and
+options stay separate.
+
+```sh
+cme config set username Steve              # global default, used everywhere
+cme profile create modpack fabric 1.21.4 --ram 6
+cme run modpack
+cme profile list
+```
+
+Run `cme profile create <name>` with no version in a terminal to fill it in
+interactively. Fields left unset on a profile fall back to `cme config`.
+
 ## Version support
 
 | Versions          | Status                                             |
@@ -159,7 +175,7 @@ Prebuilt Linux x86_64 binaries are on the
 - [x] Fabric and Quilt
 - [x] integrity check (`cme verify`)
 - [ ] automatic Java installation
-- [ ] profiles and config file
+- [x] profiles and config file
 - [ ] Forge / NeoForge
 - [ ] legacy asset layout (sound for pre-1.9 versions)
 

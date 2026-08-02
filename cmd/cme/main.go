@@ -9,6 +9,7 @@ import (
 
 	"github.com/onceprgm/cme/internal/account"
 	"github.com/onceprgm/cme/internal/clog"
+	"github.com/onceprgm/cme/internal/config"
 	"github.com/onceprgm/cme/internal/installer"
 	"github.com/onceprgm/cme/internal/launch"
 	"github.com/onceprgm/cme/internal/manifest"
@@ -26,6 +27,9 @@ Usage:
   cme launch <version> --username <name> [--ram <GB>]
   cme launch fabric|quilt <version> [loader] --username <name> [--ram <GB>]
   cme verify <version>
+  cme profile create|list|show|delete ...
+  cme run <profile>
+  cme config set|get|list ...
   cme help
 
 Global flags:
@@ -163,6 +167,12 @@ func run(args []string) error {
 		return cmdLaunch(args[1:])
 	case "verify":
 		return cmdVerify(args[1:])
+	case "profile":
+		return cmdProfile(args[1:])
+	case "run":
+		return cmdRun(args[1:])
+	case "config":
+		return cmdConfig(args[1:])
 	case "help", "--help", "-h":
 		fmt.Print(usage)
 		return nil
@@ -418,8 +428,19 @@ func cmdLaunch(args []string) error {
 		}
 	}
 
+	if username == "" || ram == "" {
+		if cfg, err := config.Load(); err == nil {
+			if username == "" {
+				username = cfg.Username
+			}
+			if ram == "" && cfg.RAM > 0 {
+				ram = strconv.Itoa(cfg.RAM)
+			}
+		}
+	}
+
 	if username == "" {
-		return fmt.Errorf("--username is required (offline mode)")
+		return fmt.Errorf("--username is required (or set a default: cme config set username <name>)")
 	}
 
 	var jvmArgs []string

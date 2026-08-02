@@ -27,7 +27,10 @@ func Install(v *manifest.Version, progress func(stage string, done, total int)) 
 
 	clog.Info("install", "version", meta.ID, "type", meta.Type, "java", meta.JavaVersion.MajorVersion, "asset_index", meta.AssetIndex.ID)
 
-	dir := store.VersionDir(meta.ID)
+	dir, err := store.SafeJoin(store.VersionsDir(), meta.ID)
+	if err != nil {
+		return nil, err
+	}
 	if err := store.Ensure(dir); err != nil {
 		return nil, err
 	}
@@ -49,25 +52,34 @@ func Install(v *manifest.Version, progress func(stage string, done, total int)) 
 	var natives []nativeLib
 	seen := map[string]bool{}
 
-	add := func(f manifest.LibFile) {
+	add := func(f manifest.LibFile) error {
 		if f.URL == "" || seen[f.Path] {
-			return
+			return nil
+		}
+		dest, err := store.SafeJoin(store.LibrariesDir(), f.Path)
+		if err != nil {
+			return err
 		}
 		seen[f.Path] = true
 		tasks = append(tasks, download.Task{
 			URL:  f.URL,
-			Dest: filepath.Join(store.LibrariesDir(), filepath.FromSlash(f.Path)),
+			Dest: dest,
 			SHA1: f.SHA1,
 			Size: f.Size,
 		})
+		return nil
 	}
 
 	for _, l := range libs {
 		if l.Downloads.Artifact != nil {
-			add(*l.Downloads.Artifact)
+			if err := add(*l.Downloads.Artifact); err != nil {
+				return nil, err
+			}
 		}
 		if f, ok := l.NativeClassifier(ctx); ok {
-			add(f)
+			if err := add(f); err != nil {
+				return nil, err
+			}
 			natives = append(natives, nativeLib{lib: l, file: f})
 		}
 	}
@@ -115,7 +127,11 @@ func installAssets(meta *manifest.VersionMeta, progress func(stage string, done,
 	if err := store.Ensure(indexesDir); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(indexesDir, meta.AssetIndex.ID+".json"), raw, 0o644); err != nil {
+	indexPath, err := store.SafeJoin(indexesDir, meta.AssetIndex.ID+".json")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(indexPath, raw, 0o644); err != nil {
 		return err
 	}
 
@@ -129,10 +145,14 @@ func installAssets(meta *manifest.VersionMeta, progress func(stage string, done,
 		if seen[o.Hash] {
 			continue
 		}
+		dest, err := store.SafeJoin(objectsDir, o.Path())
+		if err != nil {
+			return err
+		}
 		seen[o.Hash] = true
 		tasks = append(tasks, download.Task{
 			URL:  o.URL(),
-			Dest: filepath.Join(objectsDir, filepath.FromSlash(o.Path())),
+			Dest: dest,
 			SHA1: o.Hash,
 			Size: o.Size,
 		})

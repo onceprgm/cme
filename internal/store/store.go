@@ -1,8 +1,10 @@
 package store
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const appName = "cme"
@@ -56,4 +58,13 @@ func VersionDir(id string) string {
 
 func Ensure(dir string) error {
 	return os.MkdirAll(dir, 0o755)
+}
+
+func SafeJoin(base, rel string) (string, error) {
+	full := filepath.Join(base, filepath.FromSlash(rel))
+	within, err := filepath.Rel(base, full)
+	if err != nil || within == ".." || strings.HasPrefix(within, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("unsafe path %q escapes %q", rel, base)
+	}
+	return full, nil
 }

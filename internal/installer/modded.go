@@ -54,7 +54,10 @@ func installModded(
 		return nil, err
 	}
 
-	dir := store.VersionDir(profile.ID)
+	dir, err := store.SafeJoin(store.VersionsDir(), profile.ID)
+	if err != nil {
+		return nil, err
+	}
 	if err := store.Ensure(dir); err != nil {
 		return nil, err
 	}
@@ -73,13 +76,17 @@ func downloadLoaderLibraries(libs []manifest.Library, progress func(stage string
 		if !ok || f.URL == "" {
 			continue
 		}
+		dest, err := store.SafeJoin(store.LibrariesDir(), f.Path)
+		if err != nil {
+			return err
+		}
 		sha, err := mavenSHA1(f.URL)
 		if err != nil {
 			clog.Warn("loader: no sha1 sidecar, downloading unverified", "lib", l.Name, "err", err.Error())
 		}
 		tasks = append(tasks, download.Task{
 			URL:  f.URL,
-			Dest: filepath.Join(store.LibrariesDir(), filepath.FromSlash(f.Path)),
+			Dest: dest,
 			SHA1: sha,
 		})
 	}
@@ -109,8 +116,24 @@ func mavenSHA1(jarURL string) (string, error) {
 	if i := strings.IndexAny(s, " \t"); i > 0 {
 		s = s[:i]
 	}
-	if len(s) != 40 {
+	if !isSHA1Hex(s) {
 		return "", fmt.Errorf("unexpected sha1 %q", s)
 	}
 	return s, nil
+}
+
+const sha1HexLength = 40
+
+func isSHA1Hex(s string) bool {
+	if len(s) != sha1HexLength {
+		return false
+	}
+	for _, c := range s {
+		switch {
+		case c >= '0' && c <= '9', c >= 'a' && c <= 'f', c >= 'A' && c <= 'F':
+		default:
+			return false
+		}
+	}
+	return true
 }

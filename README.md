@@ -50,7 +50,7 @@ cme launch fabric 1.21.4 --username Steve --ram 4
 - **Zero dependencies** &mdash; a single static Go binary, nothing to install beside it.
 - **Verified downloads** &mdash; every file checked by SHA-1 *and* size, in parallel, with retry.
 - **Offline-first** &mdash; deterministic offline UUID; the version list is cached and keeps working without a network.
-- **Fabric &amp; Quilt** &mdash; `cme install fabric <version>` (or `quilt`), merged against the vanilla base at launch. Forge is on the roadmap.
+- **Fabric, Quilt &amp; NeoForge** &mdash; `cme install fabric <version>` (or `quilt` / `neoforge`), merged against the vanilla base at launch. Classic Forge is on the roadmap.
 - **Scriptable** &mdash; data on stdout, progress on stderr, nothing that blocks a pipe.
 - **XDG-clean** &mdash; data, cache and state land where they belong; each version gets its own instance directory.
 
@@ -67,9 +67,10 @@ cme install 1.20.1
 # install a matching Java runtime (Temurin JRE) if you don't already have one
 cme java install 21
 
-# install with Fabric or Quilt (latest stable loader by default, or pin one)
+# install with Fabric, Quilt or NeoForge (latest loader by default, or pin one)
 cme install fabric 1.21.4
 cme install quilt 1.21.4
+cme install neoforge 1.21.1
 cme install fabric 1.21.4 0.16.9
 
 # launch in offline mode
@@ -77,6 +78,7 @@ cme launch 1.20.1 --username Steve
 cme launch 1.20.1 --username Steve --ram 4
 cme launch fabric 1.21.4 --username Steve --ram 4
 cme launch quilt 1.21.4 --username Steve --ram 4
+cme launch neoforge 1.21.1 --username Steve --ram 4
 cme launch 1.20.1 --username Steve --jvm-arg -XX:+UseG1GC   # repeatable
 
 # verify an install and re-download only corrupt or missing files
@@ -179,7 +181,8 @@ Prebuilt Linux x86_64 binaries are on the
 - [x] integrity check (`cme verify`)
 - [x] automatic Java installation
 - [x] profiles and config file
-- [ ] Forge / NeoForge
+- [x] NeoForge
+- [ ] classic Forge
 - [ ] legacy asset layout (sound for pre-1.9 versions)
 
 ## Development

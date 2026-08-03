@@ -13,6 +13,7 @@ import (
 	"github.com/onceprgm/cme/internal/installer"
 	"github.com/onceprgm/cme/internal/launch"
 	"github.com/onceprgm/cme/internal/manifest"
+	"github.com/onceprgm/cme/internal/meta"
 	"github.com/onceprgm/cme/internal/preflight"
 	"github.com/onceprgm/cme/internal/store"
 	"github.com/onceprgm/cme/internal/ui"
@@ -23,9 +24,9 @@ const usage = `cme - minimal Minecraft launcher for Linux
 Usage:
   cme version list [--release|--snapshot|--old-beta|--old-alpha]
   cme install <version>
-  cme install fabric|quilt <version> [loader]
+  cme install fabric|quilt|neoforge <version> [loader]
   cme launch <version> --username <name> [--ram <GB>]
-  cme launch fabric|quilt <version> [loader] --username <name> [--ram <GB>]
+  cme launch fabric|quilt|neoforge <version> [loader] --username <name> [--ram <GB>]
   cme verify <version>
   cme profile create|list|show|delete ...
   cme run <profile>
@@ -57,18 +58,20 @@ const installUsage = `cme install - download a Minecraft version
 
 Usage:
   cme install <version>
-  cme install fabric|quilt <version> [loader]
+  cme install fabric|quilt|neoforge <version> [loader]
 
 Downloads the client JAR, libraries, native libraries and assets for the given
 version, all verified by SHA-1. Already-present files are skipped.
 
 With 'fabric' or 'quilt', the vanilla base is installed first, then the loader
-profile is fetched and its libraries downloaded. Without a loader version, the
+profile is fetched and its libraries downloaded. With 'neoforge', the official
+NeoForge installer is run to patch the client. Without a loader version, the
 latest stable one is used. Examples:
 
   cme install 1.20.1
   cme install fabric 1.21.4
   cme install quilt 1.21.4
+  cme install neoforge 1.21.1
   cme install fabric 1.21.4 0.16.9
 `
 
@@ -76,7 +79,7 @@ const launchUsage = `cme launch - run an installed version in offline mode
 
 Usage:
   cme launch <version> --username <name> [--ram <GB>]
-  cme launch fabric|quilt <version> [loader] --username <name> [--ram <GB>]
+  cme launch fabric|quilt|neoforge <version> [loader] --username <name> [--ram <GB>]
 
 Flags:
   --username <name>   player name (required; offline mode)
@@ -234,6 +237,9 @@ func cmdInstall(args []string) error {
 		return nil
 	}
 
+	if len(args) >= 1 && args[0] == "neoforge" {
+		return cmdInstallNeoForge(args[1:])
+	}
 	if len(args) >= 1 && (args[0] == "fabric" || args[0] == "quilt") {
 		return cmdInstallModded(args[0], args[1:])
 	}
@@ -309,9 +315,36 @@ func cmdInstallModded(kind string, args []string) error {
 	return nil
 }
 
+func cmdInstallNeoForge(args []string) error {
+	if len(args) < 1 || len(args) > 2 {
+		return fmt.Errorf("usage: cme install neoforge <version> [neoforge-version]")
+	}
+	mc := args[0]
+	nfver := ""
+	if len(args) == 2 {
+		nfver = args[1]
+	}
+
+	if err := preflight.RequireOnline(); err != nil {
+		return err
+	}
+
+	ui.Info("fetching neoforge for %s", mc)
+	ui.Info("running the official NeoForge installer (downloads Minecraft, libraries and patches)")
+	id, err := installer.InstallNeoForge(mc, nfver, func(stage string, done, total int) {
+		ui.Progress(stage, done, total)
+	})
+	if err != nil {
+		return err
+	}
+	ui.Success("installed %s", id)
+	ui.Info("launch it with: cme launch neoforge %s --username <name>", mc)
+	return nil
+}
+
 func resolveLaunchTarget(args []string) (string, []string, error) {
 	kind := args[0]
-	if kind != "fabric" && kind != "quilt" {
+	if kind != "fabric" && kind != "quilt" && kind != "neoforge" {
 		return args[0], args[1:], nil
 	}
 	if len(args) < 2 {
@@ -329,6 +362,10 @@ func resolveLaunchTarget(args []string) (string, []string, error) {
 }
 
 func resolveModdedID(kind, game, loader string) (string, error) {
+	if kind == "neoforge" {
+		return resolveNeoForgeID(game, loader)
+	}
+
 	prefix := kind + "-loader-"
 	if loader != "" {
 		return prefix + loader + "-" + game, nil
@@ -352,6 +389,36 @@ func resolveModdedID(kind, game, loader string) (string, error) {
 	default:
 		return "", fmt.Errorf("multiple %s loaders for %s: %s; specify one, e.g. cme launch %s %s <loader>",
 			kind, game, strings.Join(matches, ", "), kind, game)
+	}
+}
+
+func resolveNeoForgeID(game, version string) (string, error) {
+	if version != "" {
+		return "neoforge-" + version, nil
+	}
+	prefix, err := meta.NeoForgePrefix(game)
+	if err != nil {
+		return "", err
+	}
+
+	full := "neoforge-" + prefix
+	var matches []string
+	entries, _ := os.ReadDir(store.VersionsDir())
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() && strings.HasPrefix(n, full) {
+			matches = append(matches, n)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf("no neoforge install for %s; run: cme install neoforge %s", game, game)
+	case 1:
+		return matches[0], nil
+	default:
+		return "", fmt.Errorf("multiple neoforge builds for %s: %s; specify one, e.g. cme launch neoforge %s <version>",
+			game, strings.Join(matches, ", "), game)
 	}
 }
 

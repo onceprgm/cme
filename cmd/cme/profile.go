@@ -159,11 +159,13 @@ func profileCreate(args []string) error {
 }
 
 func profileWizard(cfg *config.Config) (loader, version, loaderVer, username string, ram int) {
-	switch strings.ToLower(ui.Prompt("Loader: vanilla, fabric or quilt", "vanilla")) {
+	switch strings.ToLower(ui.Prompt("Loader: vanilla, fabric, quilt or neoforge", "vanilla")) {
 	case "fabric":
 		loader = "fabric"
 	case "quilt":
 		loader = "quilt"
+	case "neoforge":
+		loader = "neoforge"
 	}
 	online := preflight.Online()
 	for {
@@ -341,29 +343,44 @@ func validateTarget(loader, version string) error {
 	case "quilt":
 		_, err := meta.QuiltLatestLoader(version)
 		return err
+	case "neoforge":
+		_, err := meta.NeoForgeLatest(version)
+		return err
 	default:
 		return fmt.Errorf("unknown loader %q", loader)
 	}
 }
 
-func profileTarget(p *profile.Profile) (id string, installed bool) {
+func profileTarget(p *profile.Profile) (string, bool) {
 	if p.Loader == "" {
 		return p.Version, versionInstalled(p.Version)
 	}
 	if p.LoaderVersion != "" {
-		id = p.Loader + "-loader-" + p.LoaderVersion + "-" + p.Version
+		id, err := resolveModdedID(p.Loader, p.Version, p.LoaderVersion)
+		if err != nil {
+			return "", false
+		}
 		return id, versionInstalled(id)
 	}
-	if resolved, err := resolveModdedID(p.Loader, p.Version, ""); err == nil {
-		return resolved, true
+	id, err := resolveModdedID(p.Loader, p.Version, "")
+	if err != nil {
+		return "", false
 	}
-	return "", false
+	return id, true
 }
 
 func installTarget(p *profile.Profile) (string, error) {
 	if err := preflight.RequireOnline(); err != nil {
 		return "", err
 	}
+
+	progress := func(stage string, done, total int) { ui.Progress(stage, done, total) }
+
+	if p.Loader == "neoforge" {
+		ui.Info("fetching neoforge for %s", p.Version)
+		return installer.InstallNeoForge(p.Version, p.LoaderVersion, progress)
+	}
+
 	m, err := manifest.FetchFresh()
 	if err != nil {
 		return "", err
@@ -372,8 +389,6 @@ func installTarget(p *profile.Profile) (string, error) {
 	if v == nil {
 		return "", fmt.Errorf("version %q not found, try: cme version list", p.Version)
 	}
-
-	progress := func(stage string, done, total int) { ui.Progress(stage, done, total) }
 
 	if p.Loader == "" {
 		ui.Info("installing %s", p.Version)

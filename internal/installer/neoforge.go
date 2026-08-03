@@ -24,7 +24,21 @@ func InstallNeoForge(mc, version string, progress func(stage string, done, total
 	}
 	id := "neoforge-" + version
 
-	javaBin, err := javaForVersion(mc)
+	m, err := manifest.FetchFresh()
+	if err != nil {
+		return "", err
+	}
+	vanilla := m.Find(mc)
+	if vanilla == nil {
+		return "", fmt.Errorf("version %q not found, try: cme version list", mc)
+	}
+
+	base, err := Install(vanilla, progress)
+	if err != nil {
+		return "", err
+	}
+
+	javaBin, err := java.Resolve(base.JavaVersion.MajorVersion, "")
 	if err != nil {
 		return "", err
 	}
@@ -48,22 +62,6 @@ func InstallNeoForge(mc, version string, progress func(stage string, done, total
 
 	clog.Info("installed neoforge", "id", id, "mc", mc, "java", javaBin)
 	return id, nil
-}
-
-func javaForVersion(mc string) (string, error) {
-	m, err := manifest.FetchFresh()
-	if err != nil {
-		return "", err
-	}
-	v := m.Find(mc)
-	if v == nil {
-		return "", fmt.Errorf("version %q not found, try: cme version list", mc)
-	}
-	vmeta, _, err := manifest.FetchVersionMeta(v)
-	if err != nil {
-		return "", err
-	}
-	return java.Resolve(vmeta.JavaVersion.MajorVersion, "")
 }
 
 func downloadInstaller(version string, progress func(stage string, done, total int)) (string, error) {

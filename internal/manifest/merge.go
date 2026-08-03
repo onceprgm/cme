@@ -16,24 +16,21 @@ func Merge(parent, child *VersionMeta) *VersionMeta {
 }
 
 func mergeLibraries(parent, child []Library) []Library {
-	out := make([]Library, 0, len(parent)+len(child))
-	seen := map[string]bool{}
-	add := func(libs []Library) {
-		for _, l := range libs {
-			key := l.MavenKey()
-			if key == "" {
-				out = append(out, l)
-				continue
-			}
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			out = append(out, l)
+	childKeys := map[string]bool{}
+	for _, l := range child {
+		if key := l.MavenKey(); key != "" {
+			childKeys[key] = true
 		}
 	}
-	add(child)
-	add(parent)
+
+	out := make([]Library, 0, len(parent)+len(child))
+	out = append(out, child...)
+	for _, l := range parent {
+		if key := l.MavenKey(); key != "" && childKeys[key] {
+			continue
+		}
+		out = append(out, l)
+	}
 	return out
 }
 

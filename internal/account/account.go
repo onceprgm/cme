@@ -10,6 +10,7 @@ type Account struct {
 	UUID        string
 	AccessToken string
 	UserType    string
+	Offline     bool
 }
 
 func Offline(username string) Account {
@@ -18,6 +19,7 @@ func Offline(username string) Account {
 		UUID:        offlineUUID(username),
 		AccessToken: "0",
 		UserType:    "legacy",
+		Offline:     true,
 	}
 }
 

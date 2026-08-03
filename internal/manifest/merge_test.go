@@ -1,6 +1,37 @@
 package manifest
 
-import "testing"
+import (
+	"encoding/json"
+	"slices"
+	"testing"
+)
+
+func TestMergeKeepsRuleGatedDuplicate(t *testing.T) {
+	// A vanilla parent lists the same maven key twice, gated by rules, so
+	// only one applies per platform (as 1.16.5 does for lwjgl). Merge must
+	// keep both, and the classpath must pick the allowed one.
+	raw := `{"libraries":[
+		{"name":"org.lwjgl:lwjgl-glfw:3.2.1",
+		 "downloads":{"artifact":{"path":"o/glfw-3.2.1.jar"}},
+		 "rules":[{"action":"allow"},{"action":"disallow","os":{"name":"linux"}}]},
+		{"name":"org.lwjgl:lwjgl-glfw:3.2.2",
+		 "downloads":{"artifact":{"path":"o/glfw-3.2.2.jar"}},
+		 "rules":[{"action":"allow"}]}
+	]}`
+	var parent VersionMeta
+	if err := json.Unmarshal([]byte(raw), &parent); err != nil {
+		t.Fatal(err)
+	}
+	child := &VersionMeta{Libraries: []Library{{Name: "net.fabricmc:fabric-loader:0.1"}}}
+
+	cp := Merge(&parent, child).ClasspathPaths(RuleContext{OSName: "linux", Arch: "x64"})
+	if !slices.Contains(cp, "o/glfw-3.2.2.jar") {
+		t.Errorf("classpath missing the rule-allowed jar: %v", cp)
+	}
+	if slices.Contains(cp, "o/glfw-3.2.1.jar") {
+		t.Errorf("classpath has the rule-disallowed jar: %v", cp)
+	}
+}
 
 func TestMavenPath(t *testing.T) {
 	cases := map[string]string{

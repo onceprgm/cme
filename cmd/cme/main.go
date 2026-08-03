@@ -304,6 +304,13 @@ func cmdInstallModded(kind string, args []string) error {
 	}
 
 	ui.Info("fetching %s loader for %s", kind, game)
+	if err := validateTarget(kind, game); err != nil {
+		return err
+	}
+	if !confirmInstall(kind, game) {
+		return nil
+	}
+
 	meta, err := install(v, loader, func(stage string, done, total int) {
 		ui.Progress(stage, done, total)
 	})
@@ -330,7 +337,14 @@ func cmdInstallNeoForge(args []string) error {
 	}
 
 	ui.Info("fetching neoforge for %s", mc)
-	ui.Info("running the official NeoForge installer (downloads Minecraft, libraries and patches)")
+	if err := validateTarget("neoforge", mc); err != nil {
+		return err
+	}
+	if !confirmInstall("neoforge", mc) {
+		return nil
+	}
+
+	ui.Info("installing neoforge for %s (vanilla base, then the official installer)", mc)
 	id, err := installer.InstallNeoForge(mc, nfver, func(stage string, done, total int) {
 		ui.Progress(stage, done, total)
 	})
@@ -340,6 +354,13 @@ func cmdInstallNeoForge(args []string) error {
 	ui.Success("installed %s", id)
 	ui.Info("launch it with: cme launch neoforge %s --username <name>", mc)
 	return nil
+}
+
+func confirmInstall(kind, game string) bool {
+	if !ui.IsTerminal() {
+		return true
+	}
+	return ui.Confirm(fmt.Sprintf("install %s %s now?", kind, game), true)
 }
 
 func resolveLaunchTarget(args []string) (string, []string, error) {

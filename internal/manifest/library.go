@@ -89,14 +89,10 @@ func (m *VersionMeta) ClasspathPaths(ctx RuleContext) []string {
 		if !ok || f.Path == "" {
 			continue
 		}
-		key := l.MavenKey()
-		if key == "" {
-			key = f.Path
-		}
-		if seen[key] {
+		if seen[f.Path] {
 			continue
 		}
-		seen[key] = true
+		seen[f.Path] = true
 		out = append(out, f.Path)
 	}
 	return out

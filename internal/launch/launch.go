@@ -17,9 +17,18 @@ import (
 )
 
 const (
-	launcherName    = "cme"
-	launcherVersion = "0.1.1-alpha"
+	launcherName          = "cme"
+	launcherVersion       = "0.1.2-alpha"
+	bootstrapLauncherMain = "cpw.mods.bootstraplauncher.BootstrapLauncher"
 )
+
+var offlineAuthArgs = []string{
+	"-Dminecraft.api.env=custom",
+	"-Dminecraft.api.auth.host=https://invalid.invalid",
+	"-Dminecraft.api.account.host=https://invalid.invalid",
+	"-Dminecraft.api.session.host=https://invalid.invalid",
+	"-Dminecraft.api.services.host=https://invalid.invalid",
+}
 
 type Options struct {
 	VersionID string
@@ -67,7 +76,9 @@ func Launch(opts Options) error {
 	for _, p := range meta.ClasspathPaths(ctx) {
 		cp = append(cp, filepath.Join(store.LibrariesDir(), filepath.FromSlash(p)))
 	}
-	cp = append(cp, filepath.Join(clientDir, clientID+".jar"))
+	if meta.MainClass != bootstrapLauncherMain {
+		cp = append(cp, filepath.Join(clientDir, clientID+".jar"))
+	}
 	classpath := strings.Join(cp, string(os.PathListSeparator))
 
 	gameDir := opts.GameDir
@@ -104,6 +115,9 @@ func Launch(opts Options) error {
 	}
 
 	args := meta.JVMArgs(ctx, vars)
+	if opts.Account.Offline {
+		args = append(args, offlineAuthArgs...)
+	}
 	args = append(args, opts.JVMArgs...)
 	args = append(args, meta.MainClass)
 	args = append(args, meta.GameArgs(ctx, vars)...)

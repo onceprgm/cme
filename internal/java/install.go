@@ -24,8 +24,8 @@ import (
 var httpClient = &http.Client{Timeout: 20 * time.Minute}
 
 type Managed struct {
-	Major int
-	Path  string
+	Major int    `json:"major"`
+	Path  string `json:"path"`
 }
 
 func Install(major int, progress func(done, total int64)) (string, error) {
@@ -77,14 +77,14 @@ func Install(major int, progress func(done, total int64)) (string, error) {
 }
 
 func List() ([]Managed, error) {
+	out := []Managed{}
 	entries, err := os.ReadDir(store.JavaDir())
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return out, nil
 		}
 		return nil, err
 	}
-	var out []Managed
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue

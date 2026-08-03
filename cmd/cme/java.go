@@ -34,7 +34,7 @@ func cmdJava(args []string) error {
 	case "install":
 		return javaInstall(args[1:])
 	case "list", "ls":
-		return javaList()
+		return javaList(args[1:])
 	default:
 		return fmt.Errorf("unknown java command %q (try: install, list)", args[0])
 	}
@@ -69,10 +69,13 @@ func javaInstall(args []string) error {
 	return nil
 }
 
-func javaList() error {
+func javaList(args []string) error {
 	list, err := java.List()
 	if err != nil {
 		return err
+	}
+	if hasJSON(args) {
+		return printJSON(list)
 	}
 	if len(list) == 0 {
 		ui.Info("no managed java installs; add one: cme java install 21")

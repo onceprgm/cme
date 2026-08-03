@@ -1,11 +1,16 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/onceprgm/cme/internal/account"
 	"github.com/onceprgm/cme/internal/clog"
@@ -22,7 +27,7 @@ import (
 const usage = `cme - minimal Minecraft launcher for Linux
 
 Usage:
-  cme version list [--release|--snapshot|--old-beta|--old-alpha]
+  cme version list [--release|--snapshot|--old-beta|--old-alpha] [--json]
   cme install <version>
   cme install fabric|quilt|neoforge <version> [loader]
   cme launch <version> --username <name> [--ram <GB>]
@@ -32,6 +37,7 @@ Usage:
   cme run <profile>
   cme config set|get|list ...
   cme java install|list ...
+  cme open [instance]
   cme help
 
 Global flags:
@@ -85,6 +91,7 @@ Flags:
   --username <name>   player name (required; offline mode)
   --ram <GB>          memory in gigabytes, sets -Xmx and -Xms (optional)
   --jvm-arg <arg>     extra JVM argument, repeatable (advanced)
+  --no-output         don't echo the game's log to the console (still logged to file)
 
 The version must be installed first with 'cme install'. With 'fabric' or 'quilt'
 and no loader version, the installed loader is used (cme asks if several are
@@ -93,6 +100,17 @@ present). Examples:
   cme launch 1.20.1 --username Steve --ram 4
   cme launch fabric 1.21.4 --username Steve --ram 4
   cme launch quilt 1.21.4 --username Steve --ram 4
+`
+
+const openUsage = `cme open - open a cme directory in your file manager
+
+Usage:
+  cme open              open the cme data directory
+  cme open <instance>   open a profile/version game directory
+
+Examples:
+  cme open
+  cme open modpack
 `
 
 const verifyUsage = `cme verify - check an installed version and repair broken files
@@ -128,9 +146,39 @@ func mainCode() int {
 	if err := run(args); err != nil {
 		clog.Error("command failed", "err", err.Error())
 		fmt.Fprintln(os.Stderr, "cme:", err)
+		var ue *usageError
+		if errors.As(err, &ue) {
+			return 2
+		}
 		return 1
 	}
 	return 0
+}
+
+type usageError struct{ msg string }
+
+func (e *usageError) Error() string { return e.msg }
+
+func usagef(format string, a ...any) error {
+	return &usageError{msg: fmt.Sprintf(format, a...)}
+}
+
+func hasJSON(args []string) bool {
+	for _, a := range args {
+		if a == "--json" {
+			return true
+		}
+	}
+	return false
+}
+
+func printJSON(v any) error {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(b))
+	return nil
 }
 
 func splitVerbose(args []string) (bool, []string) {
@@ -179,12 +227,14 @@ func run(args []string) error {
 		return cmdConfig(args[1:])
 	case "java":
 		return cmdJava(args[1:])
+	case "open":
+		return cmdOpen(args[1:])
 	case "help", "--help", "-h":
 		fmt.Print(usage)
 		return nil
 	default:
 		fmt.Print(usage)
-		return fmt.Errorf("unknown command %q", args[0])
+		return usagef("unknown command %q", args[0])
 	}
 }
 
@@ -195,12 +245,15 @@ func cmdVersion(args []string) error {
 	}
 
 	if args[0] != "list" {
-		return fmt.Errorf("usage: cme version list [--release|--snapshot|--old-beta|--old-alpha]")
+		return usagef("usage: cme version list [--release|--snapshot|--old-beta|--old-alpha] [--json]")
 	}
 
 	var filter manifest.VersionType
-	if len(args) > 1 {
-		switch args[1] {
+	jsonOut := false
+	for _, a := range args[1:] {
+		switch a {
+		case "--json":
+			jsonOut = true
 		case "--release":
 			filter = manifest.TypeRelease
 		case "--snapshot":
@@ -210,13 +263,26 @@ func cmdVersion(args []string) error {
 		case "--old-alpha":
 			filter = manifest.TypeOldAlpha
 		default:
-			return fmt.Errorf("unknown flag %q", args[1])
+			return usagef("unknown flag %q", a)
 		}
 	}
 
 	m, err := manifest.Fetch()
 	if err != nil {
 		return err
+	}
+
+	if jsonOut {
+		out := make([]versionJSON, 0)
+		for _, v := range m.Filter(filter) {
+			out = append(out, versionJSON{
+				ID:          v.ID,
+				Type:        string(v.Type),
+				ReleaseTime: v.ReleaseTime,
+				Latest:      v.ID == m.Latest.Release || v.ID == m.Latest.Snapshot,
+			})
+		}
+		return printJSON(out)
 	}
 
 	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
@@ -229,6 +295,13 @@ func cmdVersion(args []string) error {
 			marker, v.ID, v.Type, v.ReleaseTime.Format("2006-01-02"))
 	}
 	return tw.Flush()
+}
+
+type versionJSON struct {
+	ID          string    `json:"id"`
+	Type        string    `json:"type"`
+	ReleaseTime time.Time `json:"releaseTime"`
+	Latest      bool      `json:"latest"`
 }
 
 func cmdInstall(args []string) error {
@@ -443,6 +516,30 @@ func resolveNeoForgeID(game, version string) (string, error) {
 	}
 }
 
+func cmdOpen(args []string) error {
+	if wantsHelp(args) {
+		fmt.Print(openUsage)
+		return nil
+	}
+	target := store.DataDir()
+	switch len(args) {
+	case 0:
+	case 1:
+		target = filepath.Join(store.InstancesDir(), args[0])
+		if _, err := os.Stat(target); err != nil {
+			return fmt.Errorf("no instance %q (see: cme profile list)", args[0])
+		}
+	default:
+		return usagef("usage: cme open [instance]")
+	}
+
+	if err := exec.Command("xdg-open", target).Start(); err != nil {
+		return fmt.Errorf("open %s: %w", target, err)
+	}
+	ui.Info("opened %s", target)
+	return nil
+}
+
 func cmdVerify(args []string) error {
 	if wantsHelp(args) {
 		fmt.Print(verifyUsage)
@@ -489,33 +586,36 @@ func cmdLaunch(args []string) error {
 
 	username := ""
 	ram := ""
+	quiet := false
 	var extraJVM []string
 
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
 		case "--username":
 			if i+1 >= len(rest) {
-				return fmt.Errorf("--username needs a value")
+				return usagef("--username needs a value")
 			}
 			username = rest[i+1]
 			i++
 		case "--ram":
 			if i+1 >= len(rest) {
-				return fmt.Errorf("--ram needs a value")
+				return usagef("--ram needs a value")
 			}
 			ram = rest[i+1]
 			if n, err := strconv.Atoi(ram); err != nil || n <= 0 {
-				return fmt.Errorf("--ram must be a positive integer (GB), got %q", ram)
+				return usagef("--ram must be a positive integer (GB), got %q", ram)
 			}
 			i++
 		case "--jvm-arg":
 			if i+1 >= len(rest) {
-				return fmt.Errorf("--jvm-arg needs a value")
+				return usagef("--jvm-arg needs a value")
 			}
 			extraJVM = append(extraJVM, rest[i+1])
 			i++
+		case "--no-output":
+			quiet = true
 		default:
-			return fmt.Errorf("unknown flag %q", rest[i])
+			return usagef("unknown flag %q", rest[i])
 		}
 	}
 
@@ -546,5 +646,6 @@ func cmdLaunch(args []string) error {
 		VersionID: id,
 		Account:   account.Offline(username),
 		JVMArgs:   jvmArgs,
+		Quiet:     quiet,
 	})
 }

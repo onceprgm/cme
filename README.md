@@ -51,7 +51,7 @@ cme launch fabric 1.21.4 --username Steve --ram 4
 - **Verified downloads** &mdash; every file checked by SHA-1 *and* size, in parallel, with retry.
 - **Offline-first** &mdash; deterministic offline UUID that can join `online-mode=false` servers; the version list is cached and keeps working without a network.
 - **Fabric, Quilt &amp; NeoForge** &mdash; `cme install fabric <version>` (or `quilt` / `neoforge`), merged against the vanilla base at launch. Classic Forge is on the roadmap.
-- **Scriptable** &mdash; data on stdout, progress on stderr, nothing that blocks a pipe.
+- **Scriptable** &mdash; `--json` on every list, stable exit codes, data on stdout and progress on stderr, nothing that blocks a pipe.
 - **XDG-clean** &mdash; data, cache and state land where they belong; each version gets its own instance directory.
 
 ## Usage
@@ -83,7 +83,16 @@ cme launch 1.20.1 --username Steve --jvm-arg -XX:+UseG1GC   # repeatable
 
 # verify an install and re-download only corrupt or missing files
 cme verify 1.20.1
+
+# machine-readable listings, and open a folder in your file manager
+cme version list --release --json
+cme open              # the cme data directory
+cme open modpack      # a profile's game directory
 ```
+
+`cme launch --no-output` keeps the game's log out of the console (it still lands
+in `cme.log`). Every command uses stable exit codes: `0` ok, `1` error, `2` bad
+arguments.
 
 `--ram` is in gigabytes and sets both `-Xmx` and `-Xms`. The offline UUID is
 derived deterministically from the username, so it stays consistent across

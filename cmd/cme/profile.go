@@ -83,7 +83,7 @@ func cmdProfile(args []string) error {
 	case "create":
 		return profileCreate(args[1:])
 	case "list", "ls":
-		return profileList()
+		return profileList(args[1:])
 	case "show":
 		return profileShow(args[1:])
 	case "delete", "rm":
@@ -196,10 +196,13 @@ func profileWizard(cfg *config.Config) (loader, version, loaderVer, username str
 	return
 }
 
-func profileList() error {
+func profileList(args []string) error {
 	profs, err := profile.List()
 	if err != nil {
 		return err
+	}
+	if hasJSON(args) {
+		return printJSON(profs)
 	}
 	if len(profs) == 0 {
 		ui.Info("no profiles yet; create one: cme profile create <name> <version>")
@@ -249,10 +252,13 @@ func cmdRun(args []string) error {
 
 	name := ""
 	noInstall := false
+	quiet := false
 	for _, a := range args {
 		switch a {
 		case "--no-install":
 			noInstall = true
+		case "--no-output":
+			quiet = true
 		default:
 			if name != "" {
 				return fmt.Errorf("unexpected argument %q", a)
@@ -261,7 +267,7 @@ func cmdRun(args []string) error {
 		}
 	}
 	if name == "" {
-		return fmt.Errorf("usage: cme run <profile> [--no-install]")
+		return fmt.Errorf("usage: cme run <profile> [--no-install] [--no-output]")
 	}
 
 	p, err := profile.Get(name)
@@ -323,6 +329,7 @@ func cmdRun(args []string) error {
 		JVMArgs:   jvmArgs,
 		GameDir:   gameDir,
 		JavaPath:  cfg.JavaPath,
+		Quiet:     quiet,
 	})
 }
 

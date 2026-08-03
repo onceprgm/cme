@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/onceprgm/cme/internal/account"
 	"github.com/onceprgm/cme/internal/clog"
@@ -36,9 +37,11 @@ type Options struct {
 	GameDir   string
 	JavaPath  string
 	JVMArgs   []string
+	Quiet     bool
 }
 
 func Launch(opts Options) error {
+	start := time.Now()
 	versionDir := store.VersionDir(opts.VersionID)
 	meta, err := manifest.LoadVersionMeta(filepath.Join(versionDir, opts.VersionID+".json"))
 	if err != nil {
@@ -139,10 +142,16 @@ func Launch(opts Options) error {
 
 	cmd := exec.Command(javaBin, args...)
 	cmd.Dir = gameDir
-	cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
-	cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
+	if opts.Quiet {
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	} else {
+		cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
+		cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
+	}
 
 	ui.Info("launching %s as %s (java: %s)", opts.VersionID, opts.Account.Username, javaBin)
+	ui.Success("ready in %s", time.Since(start).Round(time.Millisecond))
 	if err := cmd.Run(); err != nil {
 		clog.Error("minecraft exited", "version", opts.VersionID, "err", err.Error())
 		return fmt.Errorf("minecraft exited: %w", err)

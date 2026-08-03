@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/onceprgm/cme/internal/store"
 )
@@ -97,7 +98,17 @@ func Exists(name string) bool {
 	return err == nil && r.Profiles[name] != nil
 }
 
+func ValidName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	return !strings.ContainsAny(name, "/\\")
+}
+
 func Save(p *Profile) error {
+	if !ValidName(p.Name) {
+		return fmt.Errorf("invalid profile name %q (no slashes or ..)", p.Name)
+	}
 	r, err := load()
 	if err != nil {
 		return err

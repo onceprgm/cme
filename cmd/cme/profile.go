@@ -10,7 +10,10 @@ import (
 
 	"github.com/onceprgm/cme/internal/account"
 	"github.com/onceprgm/cme/internal/config"
+	"github.com/onceprgm/cme/internal/installer"
 	"github.com/onceprgm/cme/internal/launch"
+	"github.com/onceprgm/cme/internal/manifest"
+	"github.com/onceprgm/cme/internal/preflight"
 	"github.com/onceprgm/cme/internal/profile"
 	"github.com/onceprgm/cme/internal/store"
 	"github.com/onceprgm/cme/internal/ui"
@@ -43,10 +46,14 @@ asks interactively. Examples:
 const runUsage = `cme run - launch a saved profile
 
 Usage:
-  cme run <profile>
+  cme run <profile> [--no-install]
 
 Launches the profile created with 'cme profile create'. A missing username or
 ram falls back to the global config (see 'cme config').
+
+If the profile's version is not installed yet, cme offers to install it first
+(on a terminal). Pass --no-install to fail instead, which suits scripts that
+create, install and run as separate steps.
 `
 
 const configUsage = `cme config - global default settings
@@ -212,11 +219,25 @@ func cmdRun(args []string) error {
 		fmt.Print(runUsage)
 		return nil
 	}
-	if len(args) != 1 {
-		return fmt.Errorf("usage: cme run <profile>")
+
+	name := ""
+	noInstall := false
+	for _, a := range args {
+		switch a {
+		case "--no-install":
+			noInstall = true
+		default:
+			if name != "" {
+				return fmt.Errorf("unexpected argument %q", a)
+			}
+			name = a
+		}
+	}
+	if name == "" {
+		return fmt.Errorf("usage: cme run <profile> [--no-install]")
 	}
 
-	p, err := profile.Get(args[0])
+	p, err := profile.Get(name)
 	if err != nil {
 		return err
 	}
@@ -238,9 +259,15 @@ func cmdRun(args []string) error {
 		ram = cfg.RAM
 	}
 
-	id := p.Version
-	if p.Loader != "" {
-		id, err = resolveModdedID(p.Loader, p.Version, p.LoaderVersion)
+	id, installed := profileTarget(p)
+	if !installed {
+		if noInstall || !ui.IsTerminal() {
+			return notInstalledError(p)
+		}
+		if !ui.Confirm(fmt.Sprintf("%s is not installed. Install it now?", targetLabel(p)), true) {
+			return notInstalledError(p)
+		}
+		id, err = installTarget(p)
 		if err != nil {
 			return err
 		}
@@ -257,7 +284,10 @@ func cmdRun(args []string) error {
 
 	gameDir := p.GameDir
 	if gameDir == "" {
-		gameDir = filepath.Join(store.InstancesDir(), p.Name)
+		gameDir, err = store.SafeJoin(store.InstancesDir(), p.Name)
+		if err != nil {
+			return err
+		}
 	}
 
 	return launch.Launch(launch.Options{
@@ -267,6 +297,77 @@ func cmdRun(args []string) error {
 		GameDir:   gameDir,
 		JavaPath:  cfg.JavaPath,
 	})
+}
+
+func profileTarget(p *profile.Profile) (id string, installed bool) {
+	if p.Loader == "" {
+		return p.Version, versionInstalled(p.Version)
+	}
+	if p.LoaderVersion != "" {
+		id = p.Loader + "-loader-" + p.LoaderVersion + "-" + p.Version
+		return id, versionInstalled(id)
+	}
+	if resolved, err := resolveModdedID(p.Loader, p.Version, ""); err == nil {
+		return resolved, true
+	}
+	return "", false
+}
+
+func installTarget(p *profile.Profile) (string, error) {
+	if err := preflight.RequireOnline(); err != nil {
+		return "", err
+	}
+	m, err := manifest.FetchFresh()
+	if err != nil {
+		return "", err
+	}
+	v := m.Find(p.Version)
+	if v == nil {
+		return "", fmt.Errorf("version %q not found, try: cme version list", p.Version)
+	}
+
+	progress := func(stage string, done, total int) { ui.Progress(stage, done, total) }
+
+	if p.Loader == "" {
+		ui.Info("installing %s", p.Version)
+		if _, err := installer.Install(v, progress); err != nil {
+			return "", err
+		}
+		return p.Version, nil
+	}
+
+	install := installer.InstallFabric
+	if p.Loader == "quilt" {
+		install = installer.InstallQuilt
+	}
+	ui.Info("installing %s for %s", p.Loader, p.Version)
+	meta, err := install(v, p.LoaderVersion, progress)
+	if err != nil {
+		return "", err
+	}
+	return meta.ID, nil
+}
+
+func versionInstalled(id string) bool {
+	_, err := os.Stat(filepath.Join(store.VersionDir(id), id+".json"))
+	return err == nil
+}
+
+func targetLabel(p *profile.Profile) string {
+	if p.Loader == "" {
+		return p.Version
+	}
+	if p.LoaderVersion != "" {
+		return p.Loader + " " + p.Version + " " + p.LoaderVersion
+	}
+	return p.Loader + " " + p.Version
+}
+
+func notInstalledError(p *profile.Profile) error {
+	if p.Loader == "" {
+		return fmt.Errorf("%s is not installed; run: cme install %s", p.Version, p.Version)
+	}
+	return fmt.Errorf("%s %s is not installed; run: cme install %s %s", p.Loader, p.Version, p.Loader, p.Version)
 }
 
 func cmdConfig(args []string) error {

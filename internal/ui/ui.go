@@ -26,6 +26,23 @@ func Prompt(label, def string) string {
 	return line
 }
 
+func Confirm(question string, def bool) bool {
+	suffix := "[y/N]"
+	if def {
+		suffix = "[Y/n]"
+	}
+	fmt.Fprintf(os.Stderr, "%s %s %s ", paint(dim, "?"), question, suffix)
+	line, _ := stdin.ReadString('\n')
+	switch strings.ToLower(strings.TrimSpace(line)) {
+	case "":
+		return def
+	case "y", "yes":
+		return true
+	default:
+		return false
+	}
+}
+
 var colorEnabled = detectColor()
 
 func detectColor() bool {

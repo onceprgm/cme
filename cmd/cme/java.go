@@ -54,8 +54,13 @@ func javaInstall(args []string) error {
 	}
 
 	ui.Info("installing java %d (Temurin JRE)", major)
+	lastMB := -1
 	bin, err := java.Install(major, func(done, total int64) {
-		ui.Progress("java", int(done>>20), int(total>>20))
+		mb := int(done >> 20)
+		if mb != lastMB {
+			lastMB = mb
+			ui.Progress("java", mb, int(total>>20))
+		}
 	})
 	if err != nil {
 		return err

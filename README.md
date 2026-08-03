@@ -25,7 +25,7 @@
 </p>
 
 > [!NOTE]
-> **Alpha (`0.1.1-alpha`).** Installing and launching work. Accounts are
+> **Alpha (`0.1.2-alpha`).** Installing and launching work. Accounts are
 > offline-only. Linux x86_64 is the only tested platform.
 
 ---
@@ -49,7 +49,7 @@ cme launch fabric 1.21.4 --username Steve --ram 4
 
 - **Zero dependencies** &mdash; a single static Go binary, nothing to install beside it.
 - **Verified downloads** &mdash; every file checked by SHA-1 *and* size, in parallel, with retry.
-- **Offline-first** &mdash; deterministic offline UUID; the version list is cached and keeps working without a network.
+- **Offline-first** &mdash; deterministic offline UUID that can join `online-mode=false` servers; the version list is cached and keeps working without a network.
 - **Fabric, Quilt &amp; NeoForge** &mdash; `cme install fabric <version>` (or `quilt` / `neoforge`), merged against the vanilla base at launch. Classic Forge is on the roadmap.
 - **Scriptable** &mdash; data on stdout, progress on stderr, nothing that blocks a pipe.
 - **XDG-clean** &mdash; data, cache and state land where they belong; each version gets its own instance directory.

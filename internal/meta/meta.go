@@ -27,6 +27,9 @@ func loaderList(base, game, provider string) ([]loaderEntry, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		return nil, fmt.Errorf("%s: no loader for minecraft %s (is that version supported?)", provider, game)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s: fetch loaders: unexpected status %s", provider, resp.Status)
 	}

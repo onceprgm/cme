@@ -13,6 +13,7 @@ import (
 	"github.com/onceprgm/cme/internal/installer"
 	"github.com/onceprgm/cme/internal/launch"
 	"github.com/onceprgm/cme/internal/manifest"
+	"github.com/onceprgm/cme/internal/meta"
 	"github.com/onceprgm/cme/internal/preflight"
 	"github.com/onceprgm/cme/internal/profile"
 	"github.com/onceprgm/cme/internal/store"
@@ -135,6 +136,15 @@ func profileCreate(args []string) error {
 		JVMArgs:       jvmArgs,
 		GameDir:       dir,
 	}
+
+	if preflight.Online() {
+		if err := validateTarget(p.Loader, p.Version); err != nil {
+			return err
+		}
+	} else {
+		ui.Warn("offline: could not verify %s exists; creating anyway", targetLabel(p))
+	}
+
 	if err := profile.Save(p); err != nil {
 		return err
 	}
@@ -145,15 +155,15 @@ func profileCreate(args []string) error {
 }
 
 func profileWizard(cfg *config.Config) (loader, version, loaderVer, username string, ram int) {
-	version = ui.Prompt("Minecraft version", "")
-	if version == "" {
-		return
-	}
 	switch strings.ToLower(ui.Prompt("Loader: vanilla, fabric or quilt", "vanilla")) {
 	case "fabric":
 		loader = "fabric"
 	case "quilt":
 		loader = "quilt"
+	}
+	version = ui.Prompt("Minecraft version", "")
+	if version == "" {
+		return
 	}
 	if loader != "" {
 		loaderVer = ui.Prompt("Loader version (blank = latest stable)", "")
@@ -297,6 +307,28 @@ func cmdRun(args []string) error {
 		GameDir:   gameDir,
 		JavaPath:  cfg.JavaPath,
 	})
+}
+
+func validateTarget(loader, version string) error {
+	switch loader {
+	case "":
+		m, err := manifest.Fetch()
+		if err != nil {
+			return err
+		}
+		if m.Find(version) == nil {
+			return fmt.Errorf("version %q not found, try: cme version list", version)
+		}
+		return nil
+	case "fabric":
+		_, err := meta.FabricLatestLoader(version)
+		return err
+	case "quilt":
+		_, err := meta.QuiltLatestLoader(version)
+		return err
+	default:
+		return fmt.Errorf("unknown loader %q", loader)
+	}
 }
 
 func profileTarget(p *profile.Profile) (id string, installed bool) {
@@ -463,7 +495,7 @@ func printProfile(p *profile.Profile, cfg *config.Config) {
 		if p.LoaderVersion != "" {
 			loader += " " + p.LoaderVersion
 		} else {
-			loader += " (latest installed)"
+			loader += " (latest)"
 		}
 	}
 

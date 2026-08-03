@@ -33,11 +33,7 @@ func installModded(
 	fetchProfile func(game, loader string) (*manifest.VersionMeta, []byte, error),
 	progress func(stage string, done, total int),
 ) (*manifest.VersionMeta, error) {
-	base, err := Install(vanilla, progress)
-	if err != nil {
-		return nil, err
-	}
-
+	var err error
 	if loader == "" {
 		loader, err = latest(vanilla.ID)
 		if err != nil {
@@ -46,6 +42,11 @@ func installModded(
 	}
 
 	profile, raw, err := fetchProfile(vanilla.ID, loader)
+	if err != nil {
+		return nil, err
+	}
+
+	base, err := Install(vanilla, progress)
 	if err != nil {
 		return nil, err
 	}

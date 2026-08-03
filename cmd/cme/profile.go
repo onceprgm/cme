@@ -116,6 +116,7 @@ func profileCreate(args []string) error {
 		return err
 	}
 
+	interactive := false
 	if version == "" {
 		if !ui.IsTerminal() {
 			return fmt.Errorf("a version is required: cme profile create %s <version>", name)
@@ -124,6 +125,7 @@ func profileCreate(args []string) error {
 		if version == "" {
 			return fmt.Errorf("aborted: no version given")
 		}
+		interactive = true
 	}
 
 	p := &profile.Profile{
@@ -137,12 +139,14 @@ func profileCreate(args []string) error {
 		GameDir:       dir,
 	}
 
-	if preflight.Online() {
-		if err := validateTarget(p.Loader, p.Version); err != nil {
-			return err
+	if !interactive {
+		if preflight.Online() {
+			if err := validateTarget(p.Loader, p.Version); err != nil {
+				return err
+			}
+		} else {
+			ui.Warn("offline: could not verify %s exists; creating anyway", targetLabel(p))
 		}
-	} else {
-		ui.Warn("offline: could not verify %s exists; creating anyway", targetLabel(p))
 	}
 
 	if err := profile.Save(p); err != nil {
@@ -161,9 +165,20 @@ func profileWizard(cfg *config.Config) (loader, version, loaderVer, username str
 	case "quilt":
 		loader = "quilt"
 	}
-	version = ui.Prompt("Minecraft version", "")
-	if version == "" {
-		return
+	online := preflight.Online()
+	for {
+		version = ui.Prompt("Minecraft version", "")
+		if version == "" {
+			return
+		}
+		if !online {
+			break
+		}
+		if err := validateTarget(loader, version); err != nil {
+			ui.Warn("%s", err)
+			continue
+		}
+		break
 	}
 	if loader != "" {
 		loaderVer = ui.Prompt("Loader version (blank = latest stable)", "")
@@ -372,7 +387,7 @@ func installTarget(p *profile.Profile) (string, error) {
 	if p.Loader == "quilt" {
 		install = installer.InstallQuilt
 	}
-	ui.Info("installing %s for %s", p.Loader, p.Version)
+	ui.Info("fetching %s loader for %s", p.Loader, p.Version)
 	meta, err := install(v, p.LoaderVersion, progress)
 	if err != nil {
 		return "", err

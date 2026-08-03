@@ -297,7 +297,7 @@ func cmdInstallModded(kind string, args []string) error {
 		return fmt.Errorf("version %q not found, try: cme version list", game)
 	}
 
-	ui.Info("installing %s for %s", kind, game)
+	ui.Info("fetching %s loader for %s", kind, game)
 	meta, err := install(v, loader, func(stage string, done, total int) {
 		ui.Progress(stage, done, total)
 	})

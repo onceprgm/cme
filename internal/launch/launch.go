@@ -23,6 +23,11 @@ const (
 	bootstrapLauncherMain = "cpw.mods.bootstraplauncher.BootstrapLauncher"
 )
 
+var offlineAuthVersions = map[string]bool{
+	"1.16.4": true,
+	"1.16.5": true,
+}
+
 var offlineAuthArgs = []string{
 	"-Dminecraft.api.env=custom",
 	"-Dminecraft.api.auth.host=https://invalid.invalid",
@@ -118,7 +123,7 @@ func Launch(opts Options) error {
 	}
 
 	args := meta.JVMArgs(ctx, vars)
-	if opts.Account.Offline {
+	if opts.Account.Offline && offlineAuthVersions[clientID] {
 		args = append(args, offlineAuthArgs...)
 	}
 	args = append(args, opts.JVMArgs...)

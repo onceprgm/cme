@@ -36,4 +36,5 @@ jobs:
             dist/*.tar.gz
             dist/*.sha256
           prerelease: ${{ contains(github.ref_name, '-') }}
+          body_path: RELEASE.md
           generate_release_notes: true

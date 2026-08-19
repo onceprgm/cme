@@ -7,11 +7,14 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/onceprgm/cme/internal/store"
 )
 
 const currentVersion = 1
+
+var mu sync.Mutex
 
 type Profile struct {
 	Name          string   `json:"name"`
@@ -106,6 +109,9 @@ func ValidName(name string) bool {
 }
 
 func Save(p *Profile) error {
+	mu.Lock()
+	defer mu.Unlock()
+
 	if !ValidName(p.Name) {
 		return fmt.Errorf("invalid profile name %q (no slashes or ..)", p.Name)
 	}
@@ -118,6 +124,9 @@ func Save(p *Profile) error {
 }
 
 func Delete(name string) error {
+	mu.Lock()
+	defer mu.Unlock()
+
 	r, err := load()
 	if err != nil {
 		return err
@@ -126,5 +135,54 @@ func Delete(name string) error {
 		return fmt.Errorf("profile %q not found", name)
 	}
 	delete(r.Profiles, name)
+	return persist(r)
+}
+
+func (p *Profile) AddJVMArg(arg string) bool {
+	if strings.TrimSpace(arg) == "" {
+		return false
+	}
+	for _, a := range p.JVMArgs {
+		if a == arg {
+			return false
+		}
+	}
+	p.JVMArgs = append(p.JVMArgs, arg)
+	return true
+}
+
+func (p *Profile) RemoveJVMArg(arg string) bool {
+	for i, a := range p.JVMArgs {
+		if a == arg {
+			p.JVMArgs = append(p.JVMArgs[:i], p.JVMArgs[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Profile) SetJVMArgs(args []string) {
+	p.JVMArgs = append([]string(nil), args...)
+}
+
+func (p *Profile) JVMArgsCopy() []string {
+	return append([]string(nil), p.JVMArgs...)
+}
+
+func Update(name string, mut func(*Profile) error) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	r, err := load()
+	if err != nil {
+		return err
+	}
+	p, ok := r.Profiles[name]
+	if !ok {
+		return fmt.Errorf("profile %q not found (see: cme profile list)", name)
+	}
+	if err := mut(p); err != nil {
+		return err
+	}
 	return persist(r)
 }

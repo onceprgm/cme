@@ -34,6 +34,12 @@ Flags (create):
   --jvm-arg <arg>     extra JVM argument, repeatable
   --dir <path>        game directory (default: instances/<name>)
 
+Subcommands:
+  cme profile jvm list <name> [--json]
+  cme profile jvm add  <name> <arg>
+  cme profile jvm rm   <name> <arg>
+  cme profile jvm set  <name> [<arg>...]
+
 A profile bundles a version, loader, account and JVM settings so you can launch
 with a single 'cme run <name>'. Each profile gets its own game directory, so
 saves, mods and options stay separate. With no version on a terminal, create
@@ -88,6 +94,8 @@ func cmdProfile(args []string) error {
 		return profileShow(args[1:])
 	case "delete", "rm":
 		return profileDelete(args[1:])
+	case "jvm":
+		return profileJVM(args[1:])
 	default:
 		return fmt.Errorf("unknown profile command %q (try: create, list, show, delete)", args[0])
 	}
@@ -662,4 +670,144 @@ func unsetLabel(s string) string {
 		return "(unset)"
 	}
 	return s
+}
+
+const profileJVMUsage = `cme profile jvm - manage profile JVM arguments
+
+Usage:
+  cme profile jvm list <name> [--json]
+  cme profile jvm add  <name> <arg>
+  cme profile jvm rm   <name> <arg>
+  cme profile jvm set  <name> [<arg>...]
+
+'add' appends an argument (ignored if blank or already present)
+'rm'  removes the first exact match.
+'set' replaces the list; pass no args to clear it.
+'list' prints one arg per line (scriptable) or JSON with --json.
+
+Examples:
+  cme profile jvm list modpack
+  cme profile jvm add modpack -XX:+UseZGC
+  cme profile jvm rm  modpack -XX:+UseG1GC
+  cme profile jvm set modpack -XX:+UseZGC -XX:MaxGCPauseMillis=50
+  cme profile jvm set modpack
+`
+
+func profileJVM(args []string) error {
+	if len(args) == 0 || wantsHelp(args) {
+		fmt.Print(profileJVMUsage)
+		return nil
+	}
+	switch args[0] {
+	case "list", "ls":
+		return profileJVMList(args[1:])
+	case "add":
+		return profileJVMAdd(args[1:])
+	case "rm", "remove":
+		return profileJVMRm(args[1:])
+	case "set":
+		return profileJVMSet(args[1:])
+	default:
+		return usagef("unknown jvm command %q (try: list, add, rm, set)", args[0])
+	}
+}
+
+func profileJVMList(args []string) error {
+	if len(args) < 1 {
+		return usagef("usage: cme profile jvm list <name> [--json]")
+	}
+	name := args[0]
+	jsonOut := false
+	for _, a := range args[1:] {
+		switch a {
+		case "--json":
+			jsonOut = true
+		default:
+			return usagef("unknown flag %q", a)
+		}
+	}
+	p, err := profile.Get(name)
+	if err != nil {
+		return err
+	}
+	if jsonOut {
+		out := p.JVMArgsCopy()
+		if out == nil {
+			out = []string{}
+		}
+		return printJSON(out)
+	}
+	if len(p.JVMArgs) == 0 {
+		ui.Info("no JVM args for %q", name)
+		return nil
+	}
+	for _, a := range p.JVMArgs {
+		fmt.Println(a)
+	}
+	return nil
+}
+
+func profileJVMAdd(args []string) error {
+	if len(args) != 2 {
+		return usagef("usage: cme profile jvm add <name> <arg>")
+	}
+	name, arg := args[0], args[1]
+	if strings.TrimSpace(arg) == "" {
+		return usagef("<arg> must not be blank")
+	}
+	var added bool
+	err := profile.Update(name, func(p *profile.Profile) error {
+		added = p.AddJVMArg(arg)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if added {
+		ui.Success("added %q to %s", arg, name)
+	} else {
+		ui.Info("%q already in %s", arg, name)
+	}
+	return nil
+}
+
+func profileJVMRm(args []string) error {
+	if len(args) != 2 {
+		return usagef("usage: cme profile jvm rm <name> <arg>")
+	}
+	name, arg := args[0], args[1]
+	var removed bool
+	err := profile.Update(name, func(p *profile.Profile) error {
+		removed = p.RemoveJVMArg(arg)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if !removed {
+		return fmt.Errorf("profile %q has no JVM arg %q", name, arg)
+	}
+	ui.Success("removed %q from %s", arg, name)
+	return nil
+}
+
+func profileJVMSet(args []string) error {
+	if len(args) < 1 {
+		return usagef("usage: cme profile jvm set <name> [<arg>...]")
+	}
+	name := args[0]
+	newArgs := args[1:]
+	err := profile.Update(name, func(p *profile.Profile) error {
+		p.SetJVMArgs(newArgs)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if len(newArgs) == 0 {
+		ui.Success("cleared JVM args for %s", name)
+	} else {
+		ui.Success("set %d JVM arg(s) for %s", len(newArgs), name)
+	}
+	return nil
 }

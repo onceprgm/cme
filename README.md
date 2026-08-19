@@ -124,21 +124,69 @@ the first run.
 
 </details>
 
-### Profiles
+## Profiles
 
-Save a version, loader, account and JVM settings under a name and launch with a
-single command. Each profile gets its own game directory, so saves, mods and
-options stay separate.
+Save a version, loader, account and JVM settings under a name and launch with a single command. Each profile gets its own game directory, so saves, mods and options stay separate.
 
-```sh
-cme config set username Steve              # global default, used everywhere
+```bash
 cme profile create modpack fabric 1.21.4 --ram 6
+cme profile create modpack fabric 1.21.4 --ram 6 --jvm-arg -XX:+UseZGC
+cme profile create modpack   # interactive: asks for loader, version, username, ram, and JVM args
 cme run modpack
 cme profile list
 ```
 
-Run `cme profile create <name>` with no version in a terminal to fill it in
-interactively. Fields left unset on a profile fall back to `cme config`.
+### Managing JVM arguments
+
+After creation, add, remove, replace or list JVM arguments for a profile:
+
+```bash
+cme profile jvm list modpack
+cme profile jvm list modpack --json
+cme profile jvm add modpack -XX:+UseZGC
+cme profile jvm rm modpack -XX:+UseG1GC
+cme profile jvm set modpack -XX:+UseZGC -XX:MaxGCPauseMillis=50
+cme profile jvm set modpack   # clear all JVM args
+```
+
+When running a profile, pass temporary JVM arguments that override profile settings:
+
+```bash
+cme run modpack --jvm-arg -Xmx8G --jvm-arg -XX:+UseZGC
+```
+
+Temporary arguments are applied **last**, so they override both profile and global JVM arguments.
+
+## Config
+
+Global defaults used by profiles and `cme launch` when a field is not set on the profile.
+
+```bash
+cme config set username Steve
+cme config set ram 4
+cme config set java /usr/lib/jvm/java-21-openjdk/bin/java
+cme config list
+```
+
+### Global JVM arguments
+
+Apply JVM arguments to all profiles and launches:
+
+```bash
+cme config add-jvm-arg -Djava.net.preferIPv4Stack=true
+cme config add-jvm-arg -XX:+PerfDisableSharedMem
+cme config rm-jvm-arg -XX:+PerfDisableSharedMem
+cme config list   # shows current global JVM args
+```
+
+### JVM argument priority
+
+When launching, JVM arguments are assembled in this order (later arguments override earlier ones):
+
+1. Version defaults (from Mojang's version.json)
+2. Global config (`cme config add-jvm-arg`)
+3. Profile settings (`cme profile jvm add`)
+4. Temporary overrides (`cme run --jvm-arg`)
 
 ## Version support
 
@@ -163,6 +211,42 @@ interactively. Fields left unset on a profile fall back to `cme config`.
   version_manifest_v2.json   cached version manifest (offline fallback)
 ~/.local/state/cme/
   cme.log             launcher diagnostic log (last run)
+```
+
+## Examples
+
+### Quick start
+```bash
+cme config set username Steve
+cme config set ram 4
+cme install 1.20.1
+cme launch 1.20.1 --username Steve
+```
+
+### Modpack with custom JVM tuning
+```bash
+cme profile create modpack fabric 1.21.4 --ram 8
+cme profile jvm add modpack -XX:+UseZGC
+cme profile jvm add modpack -XX:+PerfDisableSharedMem
+cme run modpack
+```
+
+### Test with more RAM (temporary override)
+```bash
+cme run modpack --jvm-arg -Xmx12G
+```
+
+### Global optimization for all profiles
+```bash
+cme config add-jvm-arg -XX:+UseG1GC
+cme config add-jvm-arg -XX:MaxGCPauseMillis=50
+cme run modpack   # applies global args automatically
+```
+
+### Inspect profile settings
+```bash
+cme profile show modpack
+cme profile jvm list modpack
 ```
 
 <details>
@@ -191,6 +275,11 @@ Prebuilt Linux x86_64 binaries are on the
 - [x] automatic Java installation
 - [x] profiles and config file
 - [x] NeoForge
+- [x] JVM arguments management
+  - [x] Profile-level JVM args (`cme profile jvm add/rm/set/list`)
+  - [x] Interactive JVM args input in `cme profile create` wizard
+  - [x] Temporary JVM args override in `cme run --jvm-arg`
+  - [x] Global JVM args via `cme config add-jvm-arg/rm-jvm-arg`
 - [ ] classic Forge
 - [ ] legacy asset layout (sound for pre-1.9 versions)
 

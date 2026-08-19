@@ -24,7 +24,7 @@ import (
 	"github.com/onceprgm/cme/internal/ui"
 )
 
-const usage = `cme - minimal Minecraft launcher for Linux
+var usage = fmt.Sprintf(`cme - minimal Minecraft launcher for Linux
 
 Usage:
   cme version list [--release|--snapshot|--old-beta|--old-alpha] [--json]
@@ -33,9 +33,9 @@ Usage:
   cme launch <version> --username <name> [--ram <GB>]
   cme launch fabric|quilt|neoforge <version> [loader] --username <name> [--ram <GB>]
   cme verify <version>
-  cme profile create|list|show|delete ...
+  cme profile create|list|show|delete|jvm ...
   cme run <profile>
-  cme config set|get|list ...
+  cme config set|get|list|add-jvm-arg|rm-jvm-arg ...
   cme java install|list ...
   cme open [instance]
   cme help
@@ -43,8 +43,8 @@ Usage:
 Global flags:
   -v, --verbose, --debug    mirror the detailed launcher log to stderr
 
-The full launcher log is always written to $XDG_STATE_HOME/cme/cme.log.
-`
+The full launcher log is always written to %s/cme.log.
+`, store.StateDir())
 
 const versionUsage = `cme version list - list available Minecraft versions
 

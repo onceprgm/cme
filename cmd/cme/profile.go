@@ -74,15 +74,22 @@ Usage:
   cme config set <key> <value>
   cme config get <key>
   cme config list
+  cme config add-jvm-arg <arg>
+  cme config rm-jvm-arg <arg>
 
-Keys:
+Keys (for set/get):
   username   default player name used by profiles and 'cme launch'
   ram        default memory in gigabytes
   java       path to a Java binary to use instead of auto-detection
 
+JVM args are managed separately with add-jvm-arg/rm-jvm-arg (applied
+to all profiles and launches).
+
 Examples:
   cme config set username Steve
   cme config set ram 4
+  cme config add-jvm-arg -Djava.net.preferIPv4Stack=true
+  cme config rm-jvm-arg -Djava.net.preferIPv4Stack=true
 `
 
 func cmdProfile(args []string) error {
@@ -502,8 +509,18 @@ func cmdConfig(args []string) error {
 			return fmt.Errorf("usage: cme config set <key> <value>")
 		}
 		return configSet(args[1], args[2])
+	case "add-jvm-arg":
+		if len(args) != 2 {
+			return usagef("usage: cme config add-jvm-arg <arg>")
+		}
+		return configAddJVMArg(args[1])
+	case "rm-jvm-arg":
+		if len(args) != 2 {
+			return usagef("usage: cme config rm-jvm-arg <arg>")
+		}
+		return configRmJVMArg(args[1])
 	default:
-		return fmt.Errorf("unknown config command %q (try: set, get, list)", args[0])
+		return fmt.Errorf("unknown config command %q (try: set, get, list, add-jvm-arg, rm-jvm-arg)", args[0])
 	}
 }
 
@@ -568,6 +585,41 @@ func configList() error {
 		fmt.Fprintf(tw, "jvmArgs\t%s\n", strings.Join(cfg.JVMArgs, " "))
 	}
 	return tw.Flush()
+}
+
+func configAddJVMArg(arg string) error {
+	if strings.TrimSpace(arg) == "" {
+		return usagef("<arg> must not be blank")
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	added := cfg.AddJVMArg(arg)
+	if err := config.Save(cfg); err != nil {
+		return err
+	}
+	if added {
+		ui.Success("added global JVM arg %q", arg)
+	} else {
+		ui.Info("global JVM arg %q already present", arg)
+	}
+	return nil
+}
+
+func configRmJVMArg(arg string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if !cfg.RemoveJVMArg(arg) {
+		return fmt.Errorf("no global JVM arg %q", arg)
+	}
+	if err := config.Save(cfg); err != nil {
+		return err
+	}
+	ui.Success("removed global JVM arg %q", arg)
+	return nil
 }
 
 func printProfile(p *profile.Profile, cfg *config.Config) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/onceprgm/cme/internal/store"
 )
@@ -56,4 +57,27 @@ func Save(c *Config) error {
 		return err
 	}
 	return os.Rename(tmp, dst)
+}
+
+func (c *Config) AddJVMArg(arg string) bool {
+	if strings.TrimSpace(arg) == "" {
+		return false
+	}
+	for _, a := range c.JVMArgs {
+		if a == arg {
+			return false
+		}
+	}
+	c.JVMArgs = append(c.JVMArgs, arg)
+	return true
+}
+
+func (c *Config) RemoveJVMArg(arg string) bool {
+	for i, a := range c.JVMArgs {
+		if a == arg {
+			c.JVMArgs = append(c.JVMArgs[:i], c.JVMArgs[i+1:]...)
+			return true
+		}
+	}
+	return false
 }

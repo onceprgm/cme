@@ -53,7 +53,12 @@ asks interactively. Examples:
 const runUsage = `cme run - launch a saved profile
 
 Usage:
-  cme run <profile> [--no-install]
+  cme run <profile> [flags]
+
+Flags:
+  --no-install    fail if not installed instead of prompting
+  --no-output     don't echo the game's log
+  --jvm-arg <a>   extra JVM arg (repeatable, applied last — overrides profile)
 
 Launches the profile created with 'cme profile create'. A missing username or
 ram falls back to the global config (see 'cme config').
@@ -270,30 +275,43 @@ func profileDelete(args []string) error {
 	return nil
 }
 
-func cmdRun(args []string) error {
-	if wantsHelp(args) {
-		fmt.Print(runUsage)
-		return nil
-	}
-
-	name := ""
-	noInstall := false
-	quiet := false
-	for _, a := range args {
+func parseRunArgs(args []string) (name string, noInstall, quiet bool, extraJVM []string, err error) {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
 		switch a {
 		case "--no-install":
 			noInstall = true
 		case "--no-output":
 			quiet = true
+		case "--jvm-arg":
+			if i+1 >= len(args) {
+				err = usagef("--jvm-arg needs a value")
+				return
+			}
+			extraJVM = append(extraJVM, args[i+1])
+			i++
 		default:
 			if name != "" {
-				return fmt.Errorf("unexpected argument %q", a)
+				err = usagef("unexpected argument %q", a)
+				return
 			}
 			name = a
 		}
 	}
+	return
+}
+
+func cmdRun(args []string) error {
+	if wantsHelp(args) {
+		fmt.Print(runUsage)
+		return nil
+	}
+	name, noInstall, quiet, extraJVM, err := parseRunArgs(args)
+	if err != nil {
+		return err
+	}
 	if name == "" {
-		return fmt.Errorf("usage: cme run <profile> [--no-install] [--no-output]")
+		return usagef("usage: cme run <profile> [--no-install] [--no-output] [--jvm-arg <arg>]")
 	}
 
 	p, err := profile.Get(name)
@@ -340,6 +358,7 @@ func cmdRun(args []string) error {
 	}
 	jvmArgs = append(jvmArgs, cfg.JVMArgs...)
 	jvmArgs = append(jvmArgs, p.JVMArgs...)
+	jvmArgs = append(jvmArgs, extraJVM...)
 
 	gameDir := p.GameDir
 	if gameDir == "" {

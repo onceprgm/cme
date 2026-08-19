@@ -3,6 +3,7 @@ package ui
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -11,6 +12,14 @@ import (
 )
 
 var stdin = bufio.NewReader(os.Stdin)
+
+func SetStdin(r io.Reader) {
+	if r == nil {
+		stdin = bufio.NewReader(os.Stdin)
+	} else {
+		stdin = bufio.NewReader(r)
+	}
+}
 
 func Prompt(label, def string) string {
 	if def != "" {

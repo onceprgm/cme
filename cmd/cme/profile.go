@@ -129,11 +129,15 @@ func profileCreate(args []string) error {
 		if !ui.IsTerminal() {
 			return fmt.Errorf("a version is required: cme profile create %s <version>", name)
 		}
-		loader, version, loaderVer, username, ram = profileWizard(cfg)
+		var wizardJVM []string
+		loader, version, loaderVer, username, ram, wizardJVM = profileWizard(cfg)
 		if version == "" {
 			return fmt.Errorf("aborted: no version given")
 		}
 		interactive = true
+		if len(wizardJVM) > 0 {
+			jvmArgs = wizardJVM
+		}
 	}
 
 	p := &profile.Profile{
@@ -166,7 +170,7 @@ func profileCreate(args []string) error {
 	return nil
 }
 
-func profileWizard(cfg *config.Config) (loader, version, loaderVer, username string, ram int) {
+func profileWizard(cfg *config.Config) (loader, version, loaderVer, username string, ram int, jvmArgs []string) {
 	switch strings.ToLower(ui.Prompt("Loader: vanilla, fabric, quilt or neoforge", "vanilla")) {
 	case "fabric":
 		loader = "fabric"
@@ -200,6 +204,20 @@ func profileWizard(cfg *config.Config) (loader, version, loaderVer, username str
 	}
 	if s := ui.Prompt("RAM in GB (blank = none)", def); s != "" {
 		ram, _ = strconv.Atoi(s)
+	}
+
+	// JVM args
+	ui.Info("JVM arguments (blank line to finish, examples):")
+	ui.Info("  -XX:+UseZGC              (low-latency GC)")
+	ui.Info("  -XX:+UseG1GC             (default for most mods)")
+	ui.Info("  -XX:+PerfDisableSharedMem")
+	ui.Info("  -Djava.net.preferIPv4Stack=true")
+	for {
+		arg := ui.Prompt("arg", "")
+		if arg == "" {
+			break
+		}
+		jvmArgs = append(jvmArgs, arg)
 	}
 	return
 }

@@ -19,7 +19,7 @@ import (
 
 const (
 	launcherName          = "cme"
-	launcherVersion       = "0.1.3-alpha"
+	launcherVersion       = "0.1.4-alpha"
 	bootstrapLauncherMain = "cpw.mods.bootstraplauncher.BootstrapLauncher"
 )
 

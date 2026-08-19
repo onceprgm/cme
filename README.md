@@ -25,7 +25,7 @@
 </p>
 
 > [!NOTE]
-> **Alpha (`0.1.3-alpha`).** Installing and launching work. Accounts are
+> **Alpha (`0.1.4-alpha`).** Installing and launching work. Accounts are
 > offline-only. Linux x86_64 is the only tested platform.
 
 ---

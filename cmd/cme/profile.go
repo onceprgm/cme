@@ -35,10 +35,13 @@ Flags (create):
   --dir <path>        game directory (default: instances/<name>)
 
 Subcommands:
-  cme profile jvm list <name> [--json]
-  cme profile jvm add  <name> <arg>
-  cme profile jvm rm   <name> <arg>
-  cme profile jvm set  <name> [<arg>...]
+  cme profile jvm list  <name> [--json]
+  cme profile jvm add   <name> <arg>
+  cme profile jvm rm    <name> <arg>
+  cme profile jvm set   <name> [<arg>...]
+  cme profile jar set   <name> <path>
+  cme profile jar clear <name>
+  cme profile jar show  <name>
 
 A profile bundles a version, loader, account and JVM settings so you can launch
 with a single 'cme run <name>'. Each profile gets its own game directory, so
@@ -108,6 +111,8 @@ func cmdProfile(args []string) error {
 		return profileDelete(args[1:])
 	case "jvm":
 		return profileJVM(args[1:])
+	case "jar":
+		return profileJar(args[1:])
 	default:
 		return fmt.Errorf("unknown profile command %q (try: create, list, show, delete)", args[0])
 	}
@@ -282,6 +287,47 @@ func profileDelete(args []string) error {
 	return nil
 }
 
+func profileJar(args []string) error {
+	if len(args) < 2 {
+		return usagef("usage: cme profile jar set <name> <path> | clear <name> | show <name>")
+	}
+	name := args[1]
+	switch args[0] {
+	case "set":
+		if len(args) != 3 {
+			return usagef("usage: cme profile jar set <name> <path>")
+		}
+		abs, err := launch.ResolveJar(args[2])
+		if err != nil {
+			return err
+		}
+		if err := profile.Update(name, func(p *profile.Profile) error {
+			if p.Loader == "neoforge" {
+				return fmt.Errorf("custom jar is not supported for neoforge")
+			}
+			p.CustomJar = abs
+			return nil
+		}); err != nil {
+			return err
+		}
+		ui.Success("%s will use %s", name, abs)
+	case "clear":
+		if err := profile.Update(name, func(p *profile.Profile) error { p.CustomJar = ""; return nil }); err != nil {
+			return err
+		}
+		ui.Success("cleared custom jar for %s", name)
+	case "show":
+		p, err := profile.Get(name)
+		if err != nil {
+			return err
+		}
+		fmt.Println(dash(p.CustomJar))
+	default:
+		return usagef("unknown jar command %q (set, clear, show)", args[0])
+	}
+	return nil
+}
+
 func parseRunArgs(args []string) (name string, noInstall, quiet bool, extraJVM []string, err error) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -382,6 +428,7 @@ func cmdRun(args []string) error {
 		GameDir:   gameDir,
 		JavaPath:  cfg.JavaPath,
 		Quiet:     quiet,
+		CustomJar: p.CustomJar,
 	})
 }
 
@@ -662,6 +709,9 @@ func printProfile(p *profile.Profile, cfg *config.Config) {
 	fmt.Printf("  %s  %s\n", ui.Dim("game dir"), gameDir)
 	if len(p.JVMArgs) > 0 {
 		fmt.Printf("  %s  %s\n", ui.Dim("jvm args"), strings.Join(p.JVMArgs, " "))
+	}
+	if p.CustomJar != "" {
+		fmt.Printf("  %s  %s\n", ui.Dim("custom  "), p.CustomJar)
 	}
 }
 

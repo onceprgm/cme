@@ -25,6 +25,7 @@ type Profile struct {
 	RAM           int      `json:"ram,omitempty"`
 	JVMArgs       []string `json:"jvmArgs,omitempty"`
 	GameDir       string   `json:"gameDir,omitempty"`
+	CustomJar     string
 }
 
 type registry struct {

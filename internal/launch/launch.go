@@ -1,6 +1,7 @@
 package launch
 
 import (
+	"archive/zip"
 	"fmt"
 	"io"
 	"os"
@@ -43,6 +44,7 @@ type Options struct {
 	JavaPath  string
 	JVMArgs   []string
 	Quiet     bool
+	CustomJar string
 }
 
 func Launch(opts Options) error {
@@ -84,8 +86,20 @@ func Launch(opts Options) error {
 	for _, p := range meta.ClasspathPaths(ctx) {
 		cp = append(cp, filepath.Join(store.LibrariesDir(), filepath.FromSlash(p)))
 	}
+	clientJar := filepath.Join(clientDir, clientID+".jar")
+	if opts.CustomJar != "" {
+		if meta.MainClass == bootstrapLauncherMain {
+			return fmt.Errorf("custom jar is not supported for neoforge")
+		}
+		j, err := ResolveJar(opts.CustomJar)
+		if err != nil {
+			return fmt.Errorf("custom jar: %w", err)
+		}
+		clientJar = j
+		clog.Debug("using custom jar", "path", j)
+	}
 	if meta.MainClass != bootstrapLauncherMain {
-		cp = append(cp, filepath.Join(clientDir, clientID+".jar"))
+		cp = append(cp, clientJar)
 	}
 	classpath := strings.Join(cp, string(os.PathListSeparator))
 
@@ -170,4 +184,31 @@ func versionType(t string) string {
 		return "release"
 	}
 	return t
+}
+
+func ResolveJar(p string) (string, error) {
+	if strings.HasPrefix(p, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		p = filepath.Join(home, p[2:])
+	}
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+	st, err := os.Stat(abs)
+	if err != nil {
+		return "", err
+	}
+	if !st.Mode().IsRegular() {
+		return "", fmt.Errorf("%s is not a regular file", abs)
+	}
+	zr, err := zip.OpenReader(abs)
+	if err != nil {
+		return "", fmt.Errorf("%s is not a valid jar: %w", abs, err)
+	}
+	zr.Close()
+	return abs, nil
 }
